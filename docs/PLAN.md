@@ -410,48 +410,39 @@ saaf karo, (4) return. Koi business logic route me nahi.
 
 ---
 
-## 7. Monitoring & email feature
+## 7. Monitoring & email feature (v2 — combined digests)
 
-### Kya karega
+> v1 was per-shop start + per-shop EOD emails. **v2 (shipped `8a94850`)**: two combined
+> digests per day, with an optional per-shop override.
 
-- **Setup (admin page):** ek ya zyada FPS select karo (master list se), notification email(s) daalo,
-  shop hours set karo (poll kab se kab tak), poll interval, EOD summary ka time, on/off toggle.
-- **Start-of-day mail:** jis din monitored FPS ki **pehli transaction** detect hui → mail:
-  > 🟢 *AMARJEET KAUR (FPS 108200100093) ne aaj ration dena shuru kiya — 09:12 AM.*
-  > *Ab tak: Wheat 45 kg, Sugar 12 kg · 4 cards serve hue.*
-- **End-of-day mail:** EOD time pe (ya jab poll window khatam ho) → summary:
-  > 📊 *Aaj ka hisaab — FPS 108200100093 (AMARJEET KAUR)*
-  > *37 transactions · ~180 cards · Wheat 550 kg · Sugar 741 kg · M oil-2 874 L · Total ₹4,235*
-  > *Pehli sale 09:12 AM · aakhri 06:40 PM*
+### What it does
 
-### Detection logic (`/api/cron/poll`)
+- **Settings (admin page):** notification emails, `pollFrom`, `openedDigestTime`, `eodDigestTime` — global.
+- **Add shops:** multi-select — add several FPS at once.
+- **Per shop:** ON/OFF, and Edit to set `openedOverride` / `eodOverride` times (blank = in the digest).
+- **"Shops opened" digest** — ONE email, sent when every non-override shop has opened for the day,
+  OR by `openedDigestTime` (whichever first). Lists each shop: opened-at time / not yet open.
+- **End-of-day digest** — ONE email at `eodDigestTime` with every non-override shop's full-day
+  totals (transactions, ₹, commodities, first/last sale).
+- **Override shops** get their own single opened / EOD email at their own time instead.
+
+### Logic (`/api/cron/poll` → `runPoll()` in `src/lib/monitor.ts`)
 
 ```
-for each enabled MonitorConfig:
-  now_ist = current IST time
-  if now_ist < shopOpen or now_ist > eodTime:  skip
-  txns = API 4 (fps_id, current month, year)
-  today = txns.filter(loginTime starts with today's IST date)
-  state = DailyMonitorState.upsert(fpsId, today_date)
+if now_ist < settings.pollFrom: skip
+for each enabled shop without today's openedAt:
+    txns = API 4 (fps_id, month, year, today)         # date-filtered
+    if txns.count > 0: state.openedAt = now; state.firstTxnAt = earliest loginTime
 
-  # start-of-day
-  if today.length > 0 and state.startEmailSentAt is null:
-      send start mail (first txn time, commodity totals so far, card count)
-      state.startEmailSentAt = now
-
-  state.lastSeenTxnCount = today.length
-  state.lastPolledAt = now
-
-  # end-of-day
-  if now_ist >= eodTime and state.startEmailSentAt and state.eodEmailSentAt is null:
-      send EOD summary (full totals from `today`)
-      state.eodEmailSentAt = now
+opened digest: if not sent and (all non-override shops opened OR now >= openedDigestTime)
+eod digest:    if not sent and now >= eodDigestTime
+per-shop override: own email at the shop's own time
 ```
 
-- **Idempotent** — DB flags se duplicate mail nahi jaayega, chahe cron 100 baar chale.
-- **Naya din** = naya `DailyMonitorState` row (date-keyed), lazily banega.
-- Cron service schedule: `0 */2 * * *` (har 2 ghante). Off-hours pe route turant `skip` return karega — sasta.
-- Agar kisi din shop band (0 txns) → koi mail nahi (sahi behaviour).
+- **Idempotent** — `daily_digest_state` (per day) + `daily_monitor_state` flags prevent repeats.
+- **New day** = new state rows, created lazily.
+- Cron schedule `0 */2 * * *` (every 2h, UTC). Off-hours → route returns early, cheap.
+- Tables: `settings` (singleton), `monitor_config`, `daily_monitor_state`, `daily_digest_state`, `email_log`.
 
 ### Email bhejnа (`lib/mailer.ts`)
 
