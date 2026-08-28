@@ -1,6 +1,9 @@
 import { CardLookup } from "@/components/CardLookup";
 
-export default function CardLookupPage() {
+export default async function CardLookupPage(props: PageProps<"/card">) {
+  const { rc } = await props.searchParams;
+  const initialRc = typeof rc === "string" ? rc.replace(/\D/g, "") : "";
+
   return (
     <div className="space-y-5">
       <div>
@@ -10,7 +13,7 @@ export default function CardLookupPage() {
           history, aur is mahine ki transactions.
         </p>
       </div>
-      <CardLookup />
+      <CardLookup initialRc={initialRc} />
     </div>
   );
 }

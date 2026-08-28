@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useApi } from "@/lib/useApi";
 import { qty, rupees, dateTime, shortDate } from "@/lib/format";
 import type { TransactionsResult } from "@/lib/eposTypes";
@@ -97,7 +98,15 @@ export function TransactionsTab({
                 {dayView.data.transactions.map((t) => (
                   <tr key={t.txnId || t.receiptId}>
                     <Td>{dateTime(t.loginTime)}</Td>
-                    <Td strong>{t.rc}</Td>
+                    <Td strong>
+                      <Link
+                        href={`/card?rc=${encodeURIComponent(t.rc)}`}
+                        className="text-accent underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                        title="Is card ki details dekho"
+                      >
+                        {t.rc}
+                      </Link>
+                    </Td>
                     <Td align="right">{rupees(t.amount)}</Td>
                     <Td>
                       {t.commodities

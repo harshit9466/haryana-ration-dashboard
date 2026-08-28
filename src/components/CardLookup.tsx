@@ -8,13 +8,14 @@ import { Card, ErrorBox, Empty, TableScroll, Th, Td } from "@/components/ui";
 
 type Success = Extract<BeneficiaryResult, { ok: true }>;
 
-export function CardLookup() {
+export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
   const config = useApi<{ defaultSrcNo: string }>("/api/config");
   const captcha = useApi<Captcha>("/api/proxy/captcha");
 
-  // jab tak user type na kare, config ka default dikhao (derived — koi effect nahi)
+  // priority: user ne type kiya > URL se aaya (?rc=) > config default
   const [typedSrcNo, setTypedSrcNo] = useState<string | null>(null);
-  const srcNo = typedSrcNo ?? config.data?.defaultSrcNo ?? "";
+  const srcNo =
+    typedSrcNo ?? (initialRc || config.data?.defaultSrcNo || "");
 
   const [monthInput, setMonthInput] = useState(() => {
     const n = new Date();
@@ -124,6 +125,7 @@ export function CardLookup() {
               value={captchaText}
               onChange={(e) => setCaptchaText(e.target.value)}
               placeholder="jo dikhe wo likho"
+              autoFocus={Boolean(initialRc)}
               className="rounded-md border border-border bg-background px-3 py-2"
             />
           </div>
