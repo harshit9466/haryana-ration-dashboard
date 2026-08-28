@@ -10,5 +10,6 @@ export async function GET() {
     distCode: env().DEFAULT_DIST_CODE,
     afsoCode: env().DEFAULT_AFSO_CODE,
     defaultSrcNo: env().DEFAULT_SRC_NO,
+    notifyEmail: env().NOTIFY_EMAIL,
   });
 }

@@ -1,5 +1,6 @@
 # Local dev database only. Production Postgres Railway pe hai.
 #   docker compose up -d db
+# Host port 5433 (5432 aksar kisi aur local Postgres ne le rakha hota hai — jaise BiharOne).
 services:
   db:
     image: postgres:16-alpine
@@ -10,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ration
       POSTGRES_DB: ration
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ration_pgdata:/var/lib/postgresql/data
 

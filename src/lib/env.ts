@@ -18,6 +18,7 @@ const schema = z.object({
 
   RESEND_API_KEY: z.string().default(""),
   EMAIL_FROM: z.string().default("onboarding@resend.dev"),
+  NOTIFY_EMAIL: z.string().default(""),
 
   DATABASE_URL: z.string().default(""),
 
