@@ -59,6 +59,12 @@ type EposRequest = {
   encode?: "json" | "form";
   /** `"json"` (default) ya `"text"` — API 1 HTML/text deta hai. */
   parse?: "json" | "text";
+  /**
+   * `true` → 4xx response bhi throw nahi karega, body parse karke return karega.
+   * API 6 ke liye: galat captcha pe govt `400 { responseMessage: "Captcha Invalid" }`
+   * deta hai — usse humein normally handle karna hai, exception nahi.
+   */
+  allow4xx?: boolean;
 };
 
 function encodeBody(
@@ -89,6 +95,7 @@ async function request<T>({
   body,
   encode = "json",
   parse = "json",
+  allow4xx = false,
 }: EposRequest): Promise<T> {
   const url = new URL(path, env().EPOS_BASE_URL);
   if (query) {
@@ -120,7 +127,10 @@ async function request<T>({
 
     rememberCookies(res);
 
-    if (!res.ok) {
+    const soft4xx =
+      allow4xx && res.status >= 400 && res.status < 500;
+
+    if (!res.ok && !soft4xx) {
       const snippet = (await res.text().catch(() => "")).slice(0, 160);
       throw new EposError(
         `ePOS ${method} ${path} → HTTP ${res.status}${snippet ? ` — ${snippet}` : ""}`,
@@ -166,7 +176,11 @@ export function eposGet<T>(
 export function eposPost<T>(
   path: string,
   body: unknown,
-  opts?: { encode?: EposRequest["encode"]; parse?: EposRequest["parse"] },
+  opts?: {
+    encode?: EposRequest["encode"];
+    parse?: EposRequest["parse"];
+    allow4xx?: boolean;
+  },
 ): Promise<T> {
   return request<T>({
     path,
@@ -174,5 +188,6 @@ export function eposPost<T>(
     body,
     encode: opts?.encode,
     parse: opts?.parse,
+    allow4xx: opts?.allow4xx,
   });
 }

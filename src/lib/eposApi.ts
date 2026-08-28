@@ -22,6 +22,10 @@ import type {
   TransactionsResult,
   Transaction,
   CommodityQty,
+  Captcha,
+  RawCaptcha,
+  BeneficiaryResult,
+  RawBeneficiaryResponse,
 } from "@/lib/eposTypes";
 
 // Govt endpoint paths — ek jagah, taaki typo na ho.
@@ -31,6 +35,8 @@ const PATHS = {
   dateWise: "/Epos_Spring/fps/dateWiseTransDetails",
   transactions: "/Epos_Spring/fps/fpstransactionwitoutcatptcha",
   dealers: "/Epos_Spring/api/fpsdevicemapping/device",
+  captcha: "/Epos_Spring/captcha/captcha-image",
+  beneficiary: "/Epos_Spring/sdms/SRC_Trans_Int",
 } as const;
 
 function contact(name: unknown, mobile: unknown): Contact | null {
@@ -260,5 +266,102 @@ export async function getFpsTransactions(
     // Poora mahina (koi date filter nahi) → row-list bhaari hoti hai, sirf
     // aggregates bhejte hain. Ek din ki maangi ho → us din ki saari rows.
     transactions: dateIso ? transactions : [],
+  };
+}
+
+// ── API 7: Captcha image ───────────────────────────────────────────
+export async function getCaptcha(): Promise<Captcha> {
+  const raw = await eposGet<RawCaptcha>(PATHS.captcha, { t: Date.now() });
+  const image = str(raw?.image);
+  return {
+    imageDataUri: image ? `data:image/jpeg;base64,${image}` : "",
+    salt: str(raw?.salt),
+  };
+}
+
+// ── API 6: Beneficiary (ration card) details ──────────────────────
+export async function getBeneficiary(
+  srcNo: string,
+  month: number,
+  year: number,
+  captcha: string,
+  salt: string,
+): Promise<BeneficiaryResult> {
+  const raw = await eposPost<RawBeneficiaryResponse>(
+    PATHS.beneficiary,
+    {
+      src_no: srcNo,
+      month: String(month),
+      year: String(year),
+      captcha,
+      salt,
+    },
+    { allow4xx: true }, // galat captcha → govt 400 { responseMessage: "Captcha Invalid" }
+  );
+
+  if (str(raw?.respcode) !== "200") {
+    return {
+      ok: false,
+      rc: srcNo,
+      message:
+        str(raw?.responseMessage) ||
+        str(raw?.respmsg) ||
+        "Beneficiary details nahi mili (captcha galat ya card number galat).",
+    };
+  }
+
+  const members = (raw.beneficaryMemberList ?? []).map((m) => ({
+    memberId: str(m.member_id),
+    name: str(m.member_name_en),
+    mobile: str(m.mob_no),
+    active: str(m.active).toLowerCase() === "active",
+    gender: str(m.gender_type_gt_type_id),
+    age: num(m.member_age),
+    scheme: str(m.scheme_short_name),
+    kycUid: str(m.kyc_uid),
+    fpsId: str(m.fps_id),
+  }));
+
+  const entitlements = (raw.benficaryEntitlementList ?? []).map((e) => ({
+    commodity: str(e.comm_name_eng),
+    unit: str(e.unit_type),
+    allocated: num(e.allocation_qty),
+    balance: num(e.bal_quantity_entitled),
+    month: str(e.month_short_name),
+  }));
+
+  const authentications = (raw.benficaryAuthenticationsList ?? []).map((a) => ({
+    fpsId: str(a.fps_id),
+    authType: str(a.auth_type),
+    responseCode: str(a.response_code),
+    result: str(a.error_desc),
+    member: str(a.member_name_en),
+    date: str(a.auth_time),
+  }));
+
+  const transactions = (raw.benficaryTransList ?? []).map((t) => ({
+    status: str(t.trans_status),
+    fpsId: str(t.port_fpsid),
+    member: str(t.availed_member_name),
+    date: str(t.avail_date),
+    commodities: (t.commoditylist ?? [])
+      .map((c) => ({
+        commodityId: Number(c.comm_id ?? 0),
+        commodity: str(c.comm_short) || str(c.comm_name_en),
+        qty: num(c.sale_qty) || num(c.allot_qty),
+      }))
+      .filter((c) => c.commodity),
+  }));
+
+  return {
+    ok: true,
+    rc: srcNo,
+    members,
+    entitlementHeading: str(raw.benficaryEntitlementHeading),
+    entitlements,
+    authHeading: str(raw.benficaryAuthenticationHeading),
+    authentications,
+    txnHeading: str(raw.benficaryTranscationHeading),
+    transactions,
   };
 }

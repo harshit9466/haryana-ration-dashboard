@@ -101,6 +101,7 @@ export type RawDateWiseCommodity = {
   sale_qty?: EposNum;
   statesaleQty?: EposNum;
   nfsasaleQty?: EposNum;
+  allot_qty?: EposNum; // API 6 beneficiary txns me aata hai
 };
 
 export type RawDateWiseDay = {
@@ -190,3 +191,118 @@ export type TransactionsResult = {
   byDate: { isoDate: string; count: number }[];
   transactions: Transaction[];
 };
+
+// ── API 7: Captcha image ───────────────────────────────────────────
+export type RawCaptcha = { image?: string; salt?: string };
+export type Captcha = {
+  /** data URI — <img src> me seedha lagta hai */
+  imageDataUri: string;
+  salt: string;
+};
+
+// ── API 6: Beneficiary (ration card) details ──────────────────────
+// ⚠️ Govt field names me typos hain (beneficary / benficary) — waise hi match karo.
+export type RawBeneficiaryMember = {
+  member_id?: string;
+  rc_id?: string;
+  member_name_en?: string;
+  mob_no?: string;
+  active?: string;
+  scheme_short_name?: string;
+  fps_id?: string;
+  gender_type_gt_type_id?: string;
+  dist_name_en?: string;
+  afso_name_en?: string;
+  kyc_uid?: string;
+  member_age?: number;
+};
+
+export type RawEntitlement = {
+  comm_name_eng?: string;
+  unit_type?: string;
+  allocation_qty?: string;
+  bal_quantity_entitled?: string;
+  month_short_name?: string;
+};
+
+export type RawAuthentication = {
+  fps_id?: string;
+  auth_type?: string;
+  response_code?: string;
+  error_desc?: string;
+  member_name_en?: string;
+  auth_time?: string;
+  total?: number;
+};
+
+export type RawBeneficiaryTxn = {
+  trans_status?: string;
+  port_fpsid?: string;
+  availed_member_name?: string;
+  avail_date?: string;
+  commoditylist?: RawDateWiseCommodity[];
+};
+
+export type RawBeneficiaryResponse = {
+  respcode?: string;
+  respmsg?: string;
+  responseMessage?: string; // error path (e.g. "Captcha Invalid")
+  beneficaryMemberList?: RawBeneficiaryMember[];
+  benficaryEntitlementHeading?: string;
+  benficaryEntitlementList?: RawEntitlement[];
+  benficaryAuthenticationHeading?: string;
+  benficaryAuthenticationsList?: RawAuthentication[];
+  benficaryTranscationHeading?: string;
+  benficaryTransList?: RawBeneficiaryTxn[];
+};
+
+export type BeneficiaryMember = {
+  memberId: string;
+  name: string;
+  mobile: string;
+  active: boolean;
+  gender: string;
+  age: number;
+  scheme: string;
+  kycUid: string;
+  fpsId: string;
+};
+
+export type Entitlement = {
+  commodity: string;
+  unit: string;
+  allocated: number;
+  balance: number;
+  month: string;
+};
+
+export type Authentication = {
+  fpsId: string;
+  authType: string;
+  responseCode: string;
+  result: string;
+  member: string;
+  date: string;
+};
+
+export type BeneficiaryTxn = {
+  status: string;
+  fpsId: string;
+  member: string;
+  date: string;
+  commodities: CommodityQty[];
+};
+
+export type BeneficiaryResult =
+  | {
+      ok: true;
+      rc: string;
+      members: BeneficiaryMember[];
+      entitlementHeading: string;
+      entitlements: Entitlement[];
+      authHeading: string;
+      authentications: Authentication[];
+      txnHeading: string;
+      transactions: BeneficiaryTxn[];
+    }
+  | { ok: false; rc: string; message: string };
