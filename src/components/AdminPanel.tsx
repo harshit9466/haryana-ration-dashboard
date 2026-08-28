@@ -16,6 +16,12 @@ type MonitorConfig = {
   shopClose: string;
   eodTime: string;
   pollEnabled: boolean;
+  today: {
+    startEmailSentAt: string | null;
+    eodEmailSentAt: string | null;
+    lastSeenTxnCount: number;
+    lastPolledAt: string | null;
+  } | null;
 };
 
 export function AdminPanel() {
@@ -34,7 +40,10 @@ export function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <Card title="Monitored shops">
+      <Card
+        title="Monitored shops"
+        right={<RunPollButton onDone={() => configsApi.reload()} />}
+      >
         {configsApi.loading ? (
           <Spinner />
         ) : configsApi.error ? (
@@ -69,6 +78,47 @@ export function AdminPanel() {
   );
 }
 
+function RunPollButton({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/admin/run-poll", { method: "POST" });
+      const json = await res.json();
+      if (json.ok) {
+        const acts = json.data.results
+          .map((r: { label: string; action: string }) => `${r.label}: ${r.action}`)
+          .join(" · ");
+        setNote(acts || "koi monitored shop nahi");
+      } else {
+        setNote(json.error ?? "fail");
+      }
+    } catch {
+      setNote("network error");
+    } finally {
+      setBusy(false);
+      onDone();
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {note && <span className="text-xs text-muted">{note}</span>}
+      <button
+        type="button"
+        onClick={run}
+        disabled={busy}
+        className="rounded-md border border-border px-2 py-1 text-xs disabled:opacity-50"
+      >
+        {busy ? "Checking…" : "Check now"}
+      </button>
+    </div>
+  );
+}
+
 function ConfigRow({
   config,
   onChanged,
@@ -96,6 +146,15 @@ function ConfigRow({
     onChanged();
   }
 
+  const t = config.today;
+  const todayLine = !t
+    ? "aaj abhi tak poll nahi hua"
+    : t.eodEmailSentAt
+      ? `aaj: start + EOD mail bhej diye (${t.lastSeenTxnCount} txns)`
+      : t.startEmailSentAt
+        ? `aaj: shop khul gayi, start mail gaya (${t.lastSeenTxnCount} txns) · EOD pending`
+        : `aaj: poll ho raha hai, abhi ${t.lastSeenTxnCount} txns`;
+
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
       <div>
@@ -107,6 +166,7 @@ function ConfigRow({
           {config.emails.join(", ")} · poll {config.shopOpen}–{config.shopClose} ·
           EOD {config.eodTime}
         </div>
+        <div className="text-xs text-accent">{todayLine}</div>
       </div>
       <div className="flex items-center gap-2">
         <button

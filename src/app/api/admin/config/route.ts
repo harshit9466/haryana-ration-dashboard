@@ -3,14 +3,32 @@ import { prisma } from "@/lib/db";
 import { ok, fail, failFromError } from "@/lib/http";
 import { readJson } from "@/lib/params";
 import { monitorConfigInput } from "@/lib/monitorSchema";
+import { istDateKey } from "@/lib/normalize";
 
-/** GET /api/admin/config — saari monitored FPS. */
+/** GET /api/admin/config — saari monitored FPS + aaj ka monitor state. */
 export async function GET() {
   try {
     const list = await prisma.monitorConfig.findMany({
       orderBy: { createdAt: "asc" },
     });
-    return ok(list);
+    const today = istDateKey();
+    const states = await prisma.dailyMonitorState.findMany({
+      where: { date: today, fpsId: { in: list.map((c) => c.fpsId) } },
+    });
+    const byFps = new Map(states.map((s) => [s.fpsId, s]));
+    return ok(
+      list.map((c) => ({
+        ...c,
+        today: byFps.get(c.fpsId)
+          ? {
+              startEmailSentAt: byFps.get(c.fpsId)!.startEmailSentAt,
+              eodEmailSentAt: byFps.get(c.fpsId)!.eodEmailSentAt,
+              lastSeenTxnCount: byFps.get(c.fpsId)!.lastSeenTxnCount,
+              lastPolledAt: byFps.get(c.fpsId)!.lastPolledAt,
+            }
+          : null,
+      })),
+    );
   } catch (err) {
     return failFromError(err, 500);
   }

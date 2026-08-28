@@ -22,13 +22,20 @@ async function send(
   const apiKey = env().RESEND_API_KEY;
   const from = env().EMAIL_FROM;
 
+  if (to.length === 0) {
+    return { ok: false, error: "Koi recipient nahi" };
+  }
+
+  // local monitor testing — actually send mat karo
+  if (env().MAILER_DEV_NOOP === "1") {
+    await logEmail(to, subject, true, "(dev noop — not sent)", kind, fpsId);
+    return { ok: true };
+  }
+
   if (!apiKey) {
     const error = "RESEND_API_KEY set nahi hai";
     await logEmail(to, subject, false, error, kind, fpsId);
     return { ok: false, error };
-  }
-  if (to.length === 0) {
-    return { ok: false, error: "Koi recipient nahi" };
   }
 
   try {
