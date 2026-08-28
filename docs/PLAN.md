@@ -3,7 +3,8 @@
 > Personal-use website jo Haryana PDS (ePOS) ke public transparency APIs ko ek saaf
 > dashboard me dikhata hai, plus ek **daily email monitor** for a chosen Fair Price Shop (FPS).
 >
-> Status: **PLAN — review pending**. Code abhi likha nahi gaya.
+> Status: **✅ LIVE** — https://haryana-ration.up.railway.app (deployed 2026-08-28).
+> Phases 0–7 done. Ye doc ab plan + as-built reference dono hai.
 > Owner: Harshit (`harshit9466@gmail.com`)
 > Last updated: 2026-08-28
 
@@ -572,7 +573,7 @@ model EmailLog {
 | Workspace | Harshit's Projects (`07e1e3cf-…`) |
 | Project | `haryana-ration-dashboard` (`4bf03747-03e9-4b37-9de2-9fb2b0c8305a`) |
 | Env | production (`bad1a041-…`) |
-| **Live URL** | **https://web-production-bc9db.up.railway.app** |
+| **Live URL** | **https://haryana-ration.up.railway.app** |
 | `web` service | `3fdb3f0e-…` — GitHub `harshit9466/haryana-ration-dashboard@main`, Nixpacks, `preDeployCommand: npx prisma migrate deploy`, healthcheck `/api/health`, restart ON_FAILURE×3 |
 | `cron` service | `af0368d2-…` — same repo, `startCommand: node scripts/cron-poll.mjs`, `cronSchedule: */15 * * * *`, restart NEVER |
 | `Postgres` | `1224e2c3-…` — Railway PostgreSQL template, `DATABASE_URL` referenced as `${{Postgres.DATABASE_URL}}` |
@@ -602,7 +603,7 @@ persist hoti hai; project delete kiya to dobara set karni padegi (steps upar tab
 | **4** | DB + admin page — MonitorConfig CRUD + `mailer.ts` + test-email | ✅ done (`ac565fd`) |
 | **5** | `monitor.ts` + `/api/cron/poll` + `scripts/cron-poll.mjs` | ✅ done (`d9d3ab2`) — start/EOD flow verified |
 | **6** | Auth (`proxy.ts`) + error/not-found pages | ✅ done (`be198c2`) |
-| **7** | GitHub push + Railway deploy (2 services + Postgres) via MCP | ✅ **LIVE** — https://web-production-bc9db.up.railway.app |
+| **7** | GitHub push + Railway deploy (2 services + Postgres) via MCP | ✅ **LIVE** — https://haryana-ration.up.railway.app |
 
 **Deployed 2026-08-28.** web + cron + Postgres sab up. Details section 11 me.
 
