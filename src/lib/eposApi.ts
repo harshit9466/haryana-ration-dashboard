@@ -257,6 +257,8 @@ export async function getFpsTransactions(
     byDate: [...byDateMap]
       .map(([isoDate, count]) => ({ isoDate, count }))
       .sort((a, b) => a.isoDate.localeCompare(b.isoDate)),
-    transactions,
+    // Poora mahina (koi date filter nahi) → row-list bhaari hoti hai, sirf
+    // aggregates bhejte hain. Ek din ki maangi ho → us din ki saari rows.
+    transactions: dateIso ? transactions : [],
   };
 }
