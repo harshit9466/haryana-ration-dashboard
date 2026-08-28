@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 /**
- * Server-side environment. Har field ka default hai taaki build kabhi na toote —
- * missing config request-time pe loudly fail hoti hai (dekho `requireEnv`).
+ * Server-side environment. Every field has a default so the build never breaks —
+ * missing config fails loudly at request time instead (see `requireEnv`).
  *
- * Next 16: ye values dynamic (request-time) code me hi padho — top-level module
- * scope me nahi — taaki Railway ke runtime env vars build me bake na hon.
+ * Next 16: read these values only in dynamic (request-time) code, not at module
+ * top level, so Railway's runtime env vars aren't baked into the build.
  */
 const schema = z.object({
   EPOS_BASE_URL: z.string().url().default("https://epos.haryanafood.gov.in"),
@@ -19,7 +19,7 @@ const schema = z.object({
   RESEND_API_KEY: z.string().default(""),
   EMAIL_FROM: z.string().default("onboarding@resend.dev"),
   NOTIFY_EMAIL: z.string().default(""),
-  /** "1" → email actually bhejo mat, bas log karo (local monitor testing ke liye). */
+  /** "1" → don't actually send email, just log it (for local monitor testing). */
   MAILER_DEV_NOOP: z.string().default(""),
 
   DATABASE_URL: z.string().default(""),

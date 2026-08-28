@@ -2,10 +2,10 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
- * Prisma 7 + PostgreSQL driver adapter. Singleton pattern taaki Next ke
- * hot-reload pe connection pool baar-baar na bane.
+ * Prisma 7 + PostgreSQL driver adapter. Singleton pattern so Next's hot-reload
+ * doesn't create a new connection pool on every change.
  *
- * DB sirf monitor feature ke liye — ration data yahan kabhi store nahi hota.
+ * The DB only backs the monitor feature — ration data is never stored here.
  */
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

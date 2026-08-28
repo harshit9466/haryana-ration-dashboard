@@ -12,7 +12,7 @@ export type ApiState<T> = {
 };
 
 type Options = {
-  /** falsy → fetch skip (jaise jab tak fpsId select na ho) */
+  /** falsy → skip the fetch (e.g. until an fpsId is selected) */
   enabled?: boolean;
   method?: "GET" | "POST";
   body?: unknown;
@@ -37,8 +37,8 @@ async function fetcher<T>([url, method, bodyKey]: [
 }
 
 /**
- * Proxy routes ke liye chhota SWR wrapper — loading / error / data / reload.
- * SWR dedup + race-condition handling free me deta hai.
+ * Small SWR wrapper for the proxy routes — loading / error / data / reload.
+ * SWR handles dedup and race conditions for free.
  */
 export function useApi<T>(url: string, options: Options = {}): ApiState<T> {
   const { enabled = true, method = "GET", body } = options;

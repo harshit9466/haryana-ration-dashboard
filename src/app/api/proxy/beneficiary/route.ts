@@ -15,10 +15,10 @@ const schema = z.object({
 });
 
 /**
- * API 6 — Beneficiary (ration card) details. Captcha chahiye.
+ * API 6 — Beneficiary (ration card) details. Requires a captcha.
  * POST /api/proxy/beneficiary
  *   body: { srcNo, captcha, salt, month?, year? }
- * Captcha galat → 400 "Captcha Invalid" (UI naya captcha maangega).
+ * Wrong captcha → 400 "Captcha Invalid" (the UI then requests a new captcha).
  */
 export async function POST(req: Request) {
   const parsed = schema.safeParse(await readJson(req));

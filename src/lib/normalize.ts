@@ -1,11 +1,11 @@
 /**
- * Government ePOS API data quirks — sab ek jagah handle.
+ * Government ePOS API data quirks, handled in one place.
  * (Details: docs/PLAN.md section 5)
  */
 
 const IST_TZ = "Asia/Kolkata";
 
-/** ePOS ka numeric field: kabhi `5285.59`, kabhi `{ source: "2078.0", parsedValue: 2078 }`. */
+/** An ePOS numeric field: sometimes `5285.59`, sometimes `{ source: "2078.0", parsedValue: 2078 }`. */
 export function num(value: unknown): number {
   if (value == null) {
     return 0;
@@ -35,14 +35,14 @@ export function str(value: unknown): string {
   return s;
 }
 
-/** `respcode === "200"` matlab success. `respmsg` ki spelling ("Sucess"/"sucess") pe bharosa mat karo. */
+/** `respcode === "200"` means success. Don't trust `respmsg` spelling ("Sucess"/"sucess"). */
 export function isEposOk(body: { respcode?: unknown }): boolean {
   return str(body?.respcode) === "200";
 }
 
 /**
- * ePOS `loginTime`: `"YYYY-MM-DD HH:mm:ss"` — offset ke bina, hamesha IST.
- * Ek real `Date` deta hai (IST ko UTC me convert karke).
+ * ePOS `loginTime`: `"YYYY-MM-DD HH:mm:ss"` — no offset, always IST.
+ * Returns a real `Date` (converting IST to UTC).
  */
 export function parseEposDateTime(value: unknown): Date | null {
   const s = str(value);
@@ -56,7 +56,7 @@ export function parseEposDateTime(value: unknown): Date | null {
   return new Date(utcMs);
 }
 
-/** ePOS `auth_time` / `avail_date`: `"DD-MM-YYYY"` → `"YYYY-MM-DD"` (khaali agar parse na ho). */
+/** ePOS `auth_time` / `avail_date`: `"DD-MM-YYYY"` → `"YYYY-MM-DD"` (empty if it can't parse). */
 export function eposDateToIso(value: unknown): string {
   const s = str(value);
   const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
@@ -67,7 +67,7 @@ export function eposDateToIso(value: unknown): string {
   return `${y}-${mo}-${d}`;
 }
 
-/** Abhi ka IST date `"YYYY-MM-DD"` — monitor "aaj" compare karne ke liye. */
+/** Current IST date `"YYYY-MM-DD"` — used by the monitor to compare "today". */
 export function istDateKey(at: Date = new Date()): string {
   // en-CA → YYYY-MM-DD
   return new Intl.DateTimeFormat("en-CA", {
@@ -78,7 +78,7 @@ export function istDateKey(at: Date = new Date()): string {
   }).format(at);
 }
 
-/** Abhi ka IST time `"HH:mm"` (24h) — shop-hours compare ke liye. */
+/** Current IST time `"HH:mm"` (24h) — used to compare against shop hours. */
 export function istTimeHm(at: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: IST_TZ,
@@ -88,7 +88,7 @@ export function istTimeHm(at: Date = new Date()): string {
   }).format(at);
 }
 
-/** `"HH:mm"` ko minutes-since-midnight me badlo (compare karne ke liye). */
+/** Convert `"HH:mm"` to minutes-since-midnight (for comparisons). */
 export function hmToMinutes(hm: string): number {
   const m = hm.match(/^(\d{1,2}):(\d{2})$/);
   if (!m) {
@@ -98,7 +98,7 @@ export function hmToMinutes(hm: string): number {
 }
 
 /**
- * API 1 (`getFPSs`) `text/plain` me HTML `<option>` tags deta hai, JSON nahi.
+ * API 1 (`getFPSs`) returns HTML `<option>` tags as `text/plain`, not JSON.
  *   <option value='108200100001' >108200100001(AMARJEET KAUR W 9)</option>
  * → [{ fpsId: "108200100001", dealerName: "AMARJEET KAUR W 9" }]
  */

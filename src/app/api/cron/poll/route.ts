@@ -4,10 +4,10 @@ import { env } from "@/lib/env";
 import { ok, fail, failFromError } from "@/lib/http";
 
 /**
- * Monitor poll. Cron service har ~15 min isko hit karti hai.
- * Site-password se EXEMPT — iske badle `Authorization: Bearer ${CRON_SECRET}`.
+ * Monitor poll. The Railway "cron" service hits this every ~2 hours.
+ * EXEMPT from the site password — uses `Authorization: Bearer ${CRON_SECRET}` instead.
  *
- * GET aur POST dono chalte hain (curl default GET).
+ * Both GET and POST work (curl defaults to GET).
  */
 async function handle(): Promise<Response> {
   const secret = env().CRON_SECRET;

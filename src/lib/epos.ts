@@ -1,16 +1,16 @@
 import { env } from "@/lib/env";
 
 /**
- * Government Haryana ePOS API ke saath baat karne ki EK jagah.
- * Base URL, headers, timeout, cookie handling, error shape — sab yahin.
+ * The single place we talk to the government Haryana ePOS API.
+ * Base URL, headers, timeout, cookie handling, error shape all live here.
  *
- * Phase 1 me specific endpoint functions (getDealers, getStockRegister, ...)
- * isi ke upar bante hain. Route handlers seedha `fetch` kabhi na karein.
+ * The typed endpoint functions (getDealers, getStockRegister, ...) in eposApi.ts
+ * build on this. Route handlers must never call `fetch` directly.
  */
 
 const TIMEOUT_MS = 20_000;
 
-// Firefox jaisa UA — govt portal browser hi expect karta hai.
+// Firefox-like UA — the government portal expects a browser.
 const BASE_HEADERS: Record<string, string> = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0",
@@ -19,9 +19,9 @@ const BASE_HEADERS: Record<string, string> = {
 };
 
 /**
- * Kuch ePOS endpoints session cookie (JSESSIONID) expect karte hain.
- * Jo bhi `Set-Cookie` aata hai use yaad rakhte hain aar wapas bhejte hain.
- * (Risk R1 — Phase 1 me confirm hoga cookie chahiye ya nahi.)
+ * Some ePOS endpoints may expect a session cookie (JSESSIONID). We remember any
+ * `Set-Cookie` we see and send it back. (In practice API 1–7 work without one,
+ * but this is cheap insurance.)
  */
 let cookieJar = "";
 
@@ -52,17 +52,17 @@ type EposRequest = {
   query?: Record<string, string | number | undefined>;
   body?: unknown;
   /**
-   * Body encoding. Govt API inconsistent hai:
+   * Body encoding. The government API is inconsistent:
    *  - `"json"` (default) → API 2, 3, 4, 6
-   *  - `"form"` (x-www-form-urlencoded) → API 5 (dealers). JSON bheja to 500.
+   *  - `"form"` (x-www-form-urlencoded) → API 5 (dealers). Sending JSON returns 500.
    */
   encode?: "json" | "form";
-  /** `"json"` (default) ya `"text"` — API 1 HTML/text deta hai. */
+  /** `"json"` (default) or `"text"` — API 1 returns HTML/text. */
   parse?: "json" | "text";
   /**
-   * `true` → 4xx response bhi throw nahi karega, body parse karke return karega.
-   * API 6 ke liye: galat captcha pe govt `400 { responseMessage: "Captcha Invalid" }`
-   * deta hai — usse humein normally handle karna hai, exception nahi.
+   * `true` → a 4xx response is not thrown; its body is parsed and returned.
+   * For API 6: a wrong captcha returns `400 { responseMessage: "Captcha Invalid" }`
+   * which we want to handle as data, not an exception.
    */
   allow4xx?: boolean;
 };

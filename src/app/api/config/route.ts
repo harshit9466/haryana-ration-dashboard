@@ -2,8 +2,8 @@ import { env } from "@/lib/env";
 import { ok } from "@/lib/http";
 
 /**
- * Non-secret defaults jo frontend prefill karta hai.
- * (Secrets — ADMIN_PASSWORD, RESEND_API_KEY, CRON_SECRET — kabhi yahan nahi.)
+ * Non-secret defaults the frontend uses to prefill inputs.
+ * (Secrets — ADMIN_PASSWORD, RESEND_API_KEY, CRON_SECRET — are never returned here.)
  */
 export async function GET() {
   return ok({

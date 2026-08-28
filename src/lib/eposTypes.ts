@@ -1,10 +1,10 @@
 /**
- * Government ePOS API ke types.
- *  - `Raw*`  = jaise govt bhejta hai (jitne fields hum use karte hain)
- *  - baaki   = normalized shape jo humari proxy routes frontend ko deti hain
+ * Types for the government ePOS API.
+ *  - `Raw*`  = the shape the government sends (only the fields we use)
+ *  - the rest = the normalized shape our proxy routes return to the frontend
  *
- * Govt numeric fields kabhi number, kabhi { source, parsedValue } — isliye `unknown`,
- * normalize karte waqt `num()` se guzaarte hain.
+ * Government numeric fields are sometimes a number, sometimes { source, parsedValue },
+ * hence `unknown` — run them through `num()` when normalizing.
  */
 
 export type EposNum = unknown;
@@ -101,7 +101,7 @@ export type RawDateWiseCommodity = {
   sale_qty?: EposNum;
   statesaleQty?: EposNum;
   nfsasaleQty?: EposNum;
-  allot_qty?: EposNum; // API 6 beneficiary txns me aata hai
+  allot_qty?: EposNum; // present in API 6 beneficiary transactions
 };
 
 export type RawDateWiseDay = {
@@ -138,7 +138,7 @@ export type DateWiseResult = {
   heading: string;
   monthName: string;
   year: number;
-  commodityColumns: string[]; // saari commodities jo kisi bhi din bikin — table headers
+  commodityColumns: string[]; // every commodity sold on any day — table headers
   days: DateWiseDay[];
 };
 
@@ -201,7 +201,7 @@ export type Captcha = {
 };
 
 // ── API 6: Beneficiary (ration card) details ──────────────────────
-// ⚠️ Govt field names me typos hain (beneficary / benficary) — waise hi match karo.
+// ⚠️ The government field names contain typos (beneficary / benficary) — match them as-is.
 export type RawBeneficiaryMember = {
   member_id?: string;
   rc_id?: string;

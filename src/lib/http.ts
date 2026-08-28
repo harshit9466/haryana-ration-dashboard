@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 /**
- * Route handlers ka common response envelope.
+ * Common response envelope for route handlers.
  *   success → { ok: true, data }
  *   failure → { ok: false, error }
  */
@@ -17,7 +17,7 @@ export function fail(
   return NextResponse.json({ ok: false, error, ...extra }, { status });
 }
 
-/** Upstream (govt API) fail hua ya humari validation — ek jagah se log + response. */
+/** Upstream (govt API) failure or our own validation — one place to log + respond. */
 export function failFromError(err: unknown, status = 502): NextResponse {
   const message = err instanceof Error ? err.message : "Unexpected error";
   console.error("[route error]", message);

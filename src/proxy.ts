@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Next 16: "middleware" ab "proxy" hai. Optional site-wide password (HTTP Basic).
- * Username kuch bhi — password = ADMIN_PASSWORD.
+ * Next 16: "middleware" is now "proxy". Optional site-wide password (HTTP Basic).
+ * Any username — password = ADMIN_PASSWORD.
  *
- * - ADMIN_PASSWORD **blank/unset → site fully open** (abhi yahi hai). Baad me
- *   Railway pe env var set karo → auth on, koi code change nahi.
- * - `/api/cron/poll` aur `/api/health` hamesha exempt (config.matcher me).
+ * - ADMIN_PASSWORD **blank/unset → site fully open** (current state). Set the env
+ *   var on Railway later → auth on, no code change needed.
+ * - `/api/cron/poll` and `/api/health` are always exempt (see config.matcher).
  */
 export function proxy(request: NextRequest) {
   const password = process.env.ADMIN_PASSWORD ?? "";
 
-  // configured hi nahi → allow (owner khud ko lock out na kare)
+  // not configured → allow (don't lock the owner out)
   if (!password) {
     return NextResponse.next();
   }
@@ -26,7 +26,7 @@ export function proxy(request: NextRequest) {
         return NextResponse.next();
       }
     } catch {
-      // malformed header → neeche 401
+      // malformed header → falls through to 401
     }
   }
 

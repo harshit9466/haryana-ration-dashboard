@@ -5,7 +5,7 @@ import { ok, failFromError } from "@/lib/http";
 
 /**
  * API 1 — FPS list for one AFSO sub-office (HTML <option> tags parsed).
- * GET /api/proxy/fps-options?dist=073&afso=15019   (dono optional, default env)
+ * GET /api/proxy/fps-options?dist=073&afso=15019   (both optional, default from env)
  * Secondary source — primary master list /api/proxy/dealers hai.
  */
 export async function GET(req: NextRequest) {

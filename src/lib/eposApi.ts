@@ -28,7 +28,7 @@ import type {
   RawBeneficiaryResponse,
 } from "@/lib/eposTypes";
 
-// Govt endpoint paths — ek jagah, taaki typo na ho.
+// Government endpoint paths — kept in one place to avoid typos.
 const PATHS = {
   fpsList: "/Epos_Spring/Common/getFPSs",
   stockRegister: "/Epos_Spring/fps/getfpsStockregister",
@@ -51,7 +51,7 @@ function contact(name: unknown, mobile: unknown): Contact | null {
 // ── API 5: Dealer Details (master list, cached) ─────────────────────
 export async function getDealers(distCode: string): Promise<DealersResult> {
   return cached(`dealers:${distCode}`, TTL.oneDay, async () => {
-    // ⚠️ Ye endpoint form-encoded chahta hai — JSON bheja to govt 500 deta hai.
+    // ⚠️ This endpoint needs form-encoding — sending JSON returns HTTP 500.
     const raw = await eposPost<RawDealersResponse>(
       PATHS.dealers,
       { dist_code: distCode },
@@ -182,9 +182,9 @@ export async function getDateWiseTransactions(
 
 // ── API 4: FPS-wise Transactions ─────────────────────────────────
 /**
- * @param dateIso  optional "YYYY-MM-DD" — sirf us din ki transactions (govt poora
- *                 mahina deta hai, ek shop ka 1000+ ho sakta hai). Aggregates
- *                 filtered set pe hi bante hain.
+ * @param dateIso  optional "YYYY-MM-DD" — only that day's transactions. The
+ *                 government returns the whole month (1000+ for one shop), so we
+ *                 filter server-side. Aggregates are computed over the filtered set.
  */
 export async function getFpsTransactions(
   fpsId: string,
@@ -229,7 +229,7 @@ export async function getFpsTransactions(
     };
   });
 
-  // Aggregates — dashboard + monitor dono use karenge.
+  // Aggregates — used by both the dashboard and the monitor.
   const byCommodityMap = new Map<string, number>();
   const byDateMap = new Map<string, number>();
   let totalAmount = 0;
@@ -263,8 +263,8 @@ export async function getFpsTransactions(
     byDate: [...byDateMap]
       .map(([isoDate, count]) => ({ isoDate, count }))
       .sort((a, b) => a.isoDate.localeCompare(b.isoDate)),
-    // Poora mahina (koi date filter nahi) → row-list bhaari hoti hai, sirf
-    // aggregates bhejte hain. Ek din ki maangi ho → us din ki saari rows.
+    // Whole month (no date filter) → the row list is heavy, so we return only
+    // aggregates. If a single day was requested → all of that day's rows.
     transactions: dateIso ? transactions : [],
   };
 }
@@ -296,7 +296,7 @@ export async function getBeneficiary(
       captcha,
       salt,
     },
-    { allow4xx: true }, // galat captcha → govt 400 { responseMessage: "Captcha Invalid" }
+    { allow4xx: true }, // wrong captcha → govt 400 { responseMessage: "Captcha Invalid" }
   );
 
   if (str(raw?.respcode) !== "200") {

@@ -6,14 +6,14 @@ import { currentMonthYear, fpsMonthYear, readJson } from "@/lib/params";
 const schema = fpsMonthYear.extend({
   date: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'date "YYYY-MM-DD" honi chahiye')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be "YYYY-MM-DD"')
     .optional(),
 });
 
 /**
  * API 4 — FPS-wise Transactions (har ek transaction + aggregates).
  * POST /api/proxy/transactions   body: { fpsId, month?, year?, date? }
- * `date` de to sirf us din ki (govt poora mahina deta hai — 1000+ ho sakta hai).
+ * Pass `date` for a single day only (the government returns the whole month — 1000+ rows).
  */
 export async function POST(req: Request) {
   const body = await readJson(req);

@@ -1,8 +1,8 @@
 /**
- * Chhota in-memory TTL cache — sirf rarely-changing master data ke liye
- * (dealer list, FPS options). Server restart pe reset — koi baat nahi.
+ * Small in-memory TTL cache — only for rarely-changing master data
+ * (dealer list, FPS options). Resets on server restart, which is fine.
  *
- * Ration/stock/transaction data yahan KABHI cache nahi hoti — wo hamesha live.
+ * Ration / stock / transaction data is NEVER cached here — it is always live.
  */
 
 type Entry<T> = { value: T; expires: number };
