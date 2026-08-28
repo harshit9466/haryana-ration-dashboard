@@ -5,9 +5,11 @@ export default function AdminPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Monitor Setup</h1>
-        <p className="text-sm text-muted">
-          Jo FPS yahan add karoge — wo din ki pehli ration de to email, aur din ke
-          end me summary email. Poll sirf shop hours me chalta hai.
+        <p className="max-w-2xl text-sm text-muted">
+          Add the Fair Price Shops you want to watch. Once all of them have
+          started giving ration for the day you get one &ldquo;shops opened&rdquo;
+          email, and one combined end-of-day report. A shop can be given its own
+          times instead.
         </p>
       </div>
       <AdminPanel />
