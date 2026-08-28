@@ -1,0 +1,18 @@
+# Local dev database only. Production Postgres Railway pe hai.
+#   docker compose up -d db
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ration-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ration
+      POSTGRES_PASSWORD: ration
+      POSTGRES_DB: ration
+    ports:
+      - "5432:5432"
+    volumes:
+      - ration_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ration_pgdata:

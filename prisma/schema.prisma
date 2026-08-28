@@ -1,0 +1,60 @@
+// Haryana Ration Dashboard — database schema
+// Docs: https://pris.ly/d/prisma-schema
+//
+// Ye DB sirf MONITOR feature ke liye hai (config + daily flags + email log).
+// Ration/stock/transaction data kabhi store nahi hota — wo hamesha govt API se live aata hai.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Ek monitored Fair Price Shop. Admin page se add/edit hoti hai.
+model MonitorConfig {
+  id          Int      @id @default(autoincrement())
+  fpsId       String   @unique
+  label       String // dealer ka naam (master list se), sirf display ke liye
+  distCode    String   @default("073")
+  emails      String[] // in addresses pe notification jaayegi
+  shopOpen    String   @default("05:00") // IST "HH:mm" — is time se pehle poll nahi
+  shopClose   String   @default("14:00") // IST "HH:mm" — reference/display
+  eodTime     String   @default("21:00") // IST "HH:mm" — is time ke baad EOD summary bhejo
+  pollEnabled Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("monitor_config")
+}
+
+/// Ek FPS ka ek din ka monitoring state. Roz naya row (lazily). Idempotency yahin se aati hai.
+model DailyMonitorState {
+  id               Int       @id @default(autoincrement())
+  fpsId            String
+  date             String // IST "YYYY-MM-DD"
+  firstTxnAt       String? // us din ki pehli transaction ka time "HH:mm:ss"
+  startEmailSentAt DateTime? // set => "shop opened" mail ja chuki
+  eodEmailSentAt   DateTime? // set => EOD summary mail ja chuki
+  lastSeenTxnCount Int       @default(0)
+  lastPolledAt     DateTime?
+
+  @@unique([fpsId, date])
+  @@map("daily_monitor_state")
+}
+
+/// Har bheji gayi email ka record — debugging ke liye ("mail aaya kyun nahi").
+model EmailLog {
+  id      Int      @id @default(autoincrement())
+  fpsId   String?
+  kind    String // "start" | "eod" | "test"
+  to      String
+  subject String
+  ok      Boolean
+  error   String?
+  sentAt  DateTime @default(now())
+
+  @@map("email_log")
+}
