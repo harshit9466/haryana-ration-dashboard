@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Next 16: "middleware" ab "proxy" hai. Ye poori site ko ek password ke peeche
- * rakhta hai (HTTP Basic). Username kuch bhi — password = ADMIN_PASSWORD.
+ * Next 16: "middleware" ab "proxy" hai. Optional site-wide password (HTTP Basic).
+ * Username kuch bhi — password = ADMIN_PASSWORD.
  *
- * - `/api/cron/poll` exempt hai (wo CRON_SECRET bearer se authenticate hota hai)
- * - ADMIN_PASSWORD set nahi hai → site khuli rehti hai (dev). Prod pe zaroor set karo.
+ * - ADMIN_PASSWORD **blank/unset → site fully open** (abhi yahi hai). Baad me
+ *   Railway pe env var set karo → auth on, koi code change nahi.
+ * - `/api/cron/poll` aur `/api/health` hamesha exempt (config.matcher me).
  */
 export function proxy(request: NextRequest) {
   const password = process.env.ADMIN_PASSWORD ?? "";
