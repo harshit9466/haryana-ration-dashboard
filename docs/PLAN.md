@@ -563,19 +563,31 @@ model EmailLog {
 `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `DATABASE_URL` (auto), `TZ=Asia/Kolkata`
 **`cron` service env vars:** `CRON_SECRET` (same), `WEB_URL` (web ka internal/public URL)
 
-**Steps (MCP `railway` tools se):**
-1. `create-project` → "haryana-ration-dashboard"
-2. Add **PostgreSQL** database
-3. Create service `web` ← GitHub repo connect, root `/`
-4. Set `web` env vars (upar wali list)
-5. Create service `cron` ← same repo, custom start command, cron schedule set
-6. Set `cron` env vars (`CRON_SECRET`, `WEB_URL`)
-7. Deploy `web` → `prisma migrate deploy` release-command me
-8. `generate-domain` for `web`
-9. Smoke test: dashboard khule, dealer list load ho, ek FPS ka stock aaye
-10. Admin page pe apni FPS add kar, "send test email" dabaa
-
 **Deploy trigger:** GitHub `main` pe push → Railway auto-build (dono services).
+
+### ✅ Actual deployment (2026-08-28)
+
+| | |
+|---|---|
+| Workspace | Harshit's Projects (`07e1e3cf-…`) |
+| Project | `haryana-ration-dashboard` (`4bf03747-03e9-4b37-9de2-9fb2b0c8305a`) |
+| Env | production (`bad1a041-…`) |
+| **Live URL** | **https://web-production-bc9db.up.railway.app** |
+| `web` service | `3fdb3f0e-…` — GitHub `harshit9466/haryana-ration-dashboard@main`, Nixpacks, `preDeployCommand: npx prisma migrate deploy`, healthcheck `/api/health`, restart ON_FAILURE×3 |
+| `cron` service | `af0368d2-…` — same repo, `startCommand: node scripts/cron-poll.mjs`, `cronSchedule: */15 * * * *`, restart NEVER |
+| `Postgres` | `1224e2c3-…` — Railway PostgreSQL template, `DATABASE_URL` referenced as `${{Postgres.DATABASE_URL}}` |
+
+**Service config is set via Railway API (not `railway.json` in repo)** — repo se do alag services
+banti hain jinki config alag hai, isliye ek root config file kaam nahi karti. Config Railway pe
+persist hoti hai; project delete kiya to dobara set karni padegi (steps upar table me).
+
+**Env vars** (Railway service variables — repo me kabhi nahi):
+- `web`: `DATABASE_URL` `EPOS_BASE_URL` `DEFAULT_DIST_CODE` `DEFAULT_AFSO_CODE` `DEFAULT_SRC_NO`
+  `CRON_SECRET` `RESEND_API_KEY` `EMAIL_FROM` `NOTIFY_EMAIL` `TZ` — **`ADMIN_PASSWORD` set NAHI hai
+  (site abhi open)**. Baad me set karo → auto-redeploy → auth on.
+- `cron`: `CRON_SECRET` (web jaisा), `WEB_URL`
+
+**Verified live:** health, dashboard, dealers (256), stock, captcha, `/api/cron/poll` (auth + run), admin config CRUD.
 
 ---
 
@@ -590,9 +602,9 @@ model EmailLog {
 | **4** | DB + admin page — MonitorConfig CRUD + `mailer.ts` + test-email | ✅ done (`ac565fd`) |
 | **5** | `monitor.ts` + `/api/cron/poll` + `scripts/cron-poll.mjs` | ✅ done (`d9d3ab2`) — start/EOD flow verified |
 | **6** | Auth (`proxy.ts`) + error/not-found pages | ✅ done (`be198c2`) |
-| **7** | GitHub push + Railway deploy (2 services + Postgres) via MCP | ⏳ pending — needs Harshit (secrets, repo visibility) |
+| **7** | GitHub push + Railway deploy (2 services + Postgres) via MCP | ✅ **LIVE** — https://web-production-bc9db.up.railway.app |
 
-**Local pe sab chal raha hai.** 7 commits, abhi push nahi hue.
+**Deployed 2026-08-28.** web + cron + Postgres sab up. Details section 11 me.
 
 ---
 
