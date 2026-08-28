@@ -1,10 +1,12 @@
 /**
  * Railway "cron" service ka entrypoint.
- * Schedule (Railway settings): every 15 min, e.g. asterisk-slash-15 asterisk asterisk asterisk asterisk
+ * Schedule (Railway service settings): `0 */2 * * *` — har 2 ghante (UTC).
  * Kaam: web service ka /api/cron/poll hit karo, exit.
  *
+ * Note: schedule Railway pe set hota hai, is file me nahi. Yahan sirf reference.
+ *
  * Env:
- *   WEB_URL      — web service ka URL (public ya internal)
+ *   WEB_URL      — web service ka public URL
  *   CRON_SECRET  — web service jaisा hi
  */
 

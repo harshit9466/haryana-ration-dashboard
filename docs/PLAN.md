@@ -28,14 +28,14 @@ transparency endpoints hain (`epos.haryanafood.gov.in`).
 
 | Cheez | Choice | Kyun |
 |---|---|---|
-| Framework | **Next.js 14 (App Router) + TypeScript** | Ek hi deploy me frontend + backend. API routes = govt API ka proxy + normalizer. React se clean tables/filters jaldi banenge. Railway pe ~80MB RAM, zero-config build. |
+| Framework | **Next.js 16 (App Router) + TypeScript** (`create-next-app@latest` gave 16) | Ek hi deploy me frontend + backend. API routes = govt API ka proxy + normalizer. Turbopack default, `middleware`→`proxy.ts`, async request APIs. |
 | Backend proxy | **Zaroori** — pure static site nahi chalegi | Govt API browser se direct call karne pe **CORS** block karega (calls same-origin se chali thीं, response me `Access-Control-Allow-Origin` nahi tha). Proxy CORS bypass karta hai + captcha/session handle karta hai + master list cache karta hai. |
 | Styling | **Tailwind CSS** + headless UI components (shadcn/ui) | Fast, consistent, "easy to read" tables aur dropdowns. |
 | DB | **Railway PostgreSQL** + **Prisma** | Sirf 3 chhoti tables (config + daily flags + email log). Admin page se config **runtime pe** editable hona chahiye → env var kaafi nahi, writable store chahiye. JSON file = tech debt (no concurrency safety). Postgres one-click hai Railway pe. **History/snapshots store NAHI ho rahe** — govt API khud month/year se purana data deti hai. |
 | Email | **Resend REST API** (`POST https://api.resend.com/emails`) | Tera FlowTrack project (`…/Claude/Projects/flowtrack`) already Resend use karta hai — same pattern, same account. Sender `onboarding@resend.dev` (koi domain verify nahi karna). Raw `fetch`, koi SDK nahi (FlowTrack jaisा). ~2–4 mails/day — free tier (100/day) me bahut jagah. |
 | Scheduler | **Alag Railway "cron" service** (same repo) jo `/api/cron/poll` ko hit karta hai | Web service ke andar `setInterval` daalna galat — restart pe timer mar jaata, koi observability nahi. Railway-native cron = reliable + manually bhi trigger ho sakta. |
 | Timezone | **`Asia/Kolkata` (IST)** har jagah | Govt `loginTime` bina offset ke IST me aata hai (`2026-08-28 11:00:03`). Date math IST me hi. |
-| Auth | Ek **`ADMIN_PASSWORD`** env var, Next.js middleware me check (HTTP Basic) | Personal site — poori site password ke peeche. Koi user account system nahi. |
+| Auth | **`ADMIN_PASSWORD`** env var, `proxy.ts` me HTTP Basic check | **Optional** — blank/unset = site fully open (abhi yahi hai, Harshit ki choice). Set karo → auth on. `/api/cron/poll` + `/api/health` hamesha exempt. |
 
 ---
 
@@ -450,7 +450,7 @@ for each enabled MonitorConfig:
 
 - **Idempotent** — DB flags se duplicate mail nahi jaayega, chahe cron 100 baar chale.
 - **Naya din** = naya `DailyMonitorState` row (date-keyed), lazily banega.
-- Cron service schedule: `*/15 * * * *` (har 15 min). Off-hours pe route turant `skip` return karega — sasta.
+- Cron service schedule: `0 */2 * * *` (har 2 ghante). Off-hours pe route turant `skip` return karega — sasta.
 - Agar kisi din shop band (0 txns) → koi mail nahi (sahi behaviour).
 
 ### Email bhejnа (`lib/mailer.ts`)
@@ -557,7 +557,7 @@ model EmailLog {
 | Service | Kya | Start command | Notes |
 |---|---|---|---|
 | `web` | Next.js app | `next start` (standalone) | Public domain milega. Always-on. |
-| `cron` | Poll trigger | `node scripts/cron-poll.mjs` | Railway **cron schedule** `*/15 * * * *`. Har run: `/api/cron/poll` hit karo, exit. |
+| `cron` | Poll trigger | `node scripts/cron-poll.mjs` | Railway **cron schedule** `0 */2 * * *`. Har run: `/api/cron/poll` hit karo, exit. |
 | `Postgres` | Railway plugin | — | `DATABASE_URL` dono services me inject. |
 
 **`web` service env vars:** `EPOS_BASE_URL`, `DEFAULT_DIST_CODE`, `DEFAULT_SRC_NO`, `ADMIN_PASSWORD`,
@@ -575,7 +575,7 @@ model EmailLog {
 | Env | production (`bad1a041-…`) |
 | **Live URL** | **https://haryana-ration.up.railway.app** |
 | `web` service | `3fdb3f0e-…` — GitHub `harshit9466/haryana-ration-dashboard@main`, Nixpacks, `preDeployCommand: npx prisma migrate deploy`, healthcheck `/api/health`, restart ON_FAILURE×3 |
-| `cron` service | `af0368d2-…` — same repo, `startCommand: node scripts/cron-poll.mjs`, `cronSchedule: */15 * * * *`, restart NEVER |
+| `cron` service | `af0368d2-…` — same repo, `startCommand: node scripts/cron-poll.mjs`, `cronSchedule: 0 */2 * * *`, restart NEVER |
 | `Postgres` | `1224e2c3-…` — Railway PostgreSQL template, `DATABASE_URL` referenced as `${{Postgres.DATABASE_URL}}` |
 
 **Service config is set via Railway API (not `railway.json` in repo)** — repo se do alag services
@@ -616,10 +616,10 @@ persist hoti hai; project delete kiya to dobara set karni padegi (steps upar tab
 | R1 | ~~APIs 2–7 ko `JSESSIONID` cookie chahiye?~~ ✅ **Resolved** | Phase 1: API 1–5 bina cookie ke chal gaye. `epos.ts` me cookie-jar hai (no-op abhi), API 6 ke liye ready. |
 | R2 | ~~Govt captcha `salt` session-bound hai?~~ ✅ **Resolved** | Phase 3: salt **stateless** hai (payload me jaata hai, koi cookie nahi chahiye). Real lookup verify hua — members/entitlement/auth/txns sab sahi. |
 | R11 | API 4 heavy — ek shop ka poora mahina ~1200 transactions (sample truncate hua tha) | ✅ `getFpsTransactions` me optional `date` filter + server-side aggregates (`byCommodity`, `byDate`, `totalAmount`). Dashboard date-wise dikhayega. |
-| R3 | Govt API rate-limit / block | Polling gentle rakhenge (15 min, sirf teri FPS, off-hours skip). Proper `User-Agent`. Retry with backoff. |
+| R3 | Govt API rate-limit / block | Polling gentle rakhenge (2 ghante, sirf teri FPS, off-hours skip). Proper `User-Agent`. Retry with backoff. |
 | R4 | API 4 response bada (sample 1 MB pe truncate hua tha) | Server-side hi filter/aggregate karke chhota payload frontend ko bhejenge. |
 | R5 | ~~API 1 response missing~~ **Resolved** — API 1 HTML `<option>` deta hai | Proxy regex-parse karega. API 5 primary master rahega. |
-| R6 | Railway cron ka minimum interval | 15 min chosen — safe. Agar Railway aur strict ho to web service me hi `node-cron` fallback. |
+| R6 | Railway cron ka minimum interval | 2 ghante chosen — gentle (Harshit ka choice); min 5 min. Agar Railway aur strict ho to web service me hi `node-cron` fallback. |
 | R7 | Govt site ka SSL / IP change (`103.195.218.9`) | Hostname use karenge, IP nahi. |
 | R8 | ToS — govt data personal use | Public transparency portal, low volume, personal dashboard. Data redistribute nahi kar rahe. |
 | R9 | Resend shared sender sirf account-owner email pe bhejta hai | Monitor waise bhi sirf Harshit ko mail karta hai. Dusre recipient chahiye → domain verify. |
