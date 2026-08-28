@@ -1,14 +1,10 @@
-/**
- * Railway "cron" service ka entrypoint.
- * Schedule (Railway service settings): `0 */2 * * *` — har 2 ghante (UTC).
- * Kaam: web service ka /api/cron/poll hit karo, exit.
- *
- * Note: schedule Railway pe set hota hai, is file me nahi. Yahan sirf reference.
- *
- * Env:
- *   WEB_URL      — web service ka public URL
- *   CRON_SECRET  — web service jaisा hi
- */
+// Entrypoint for the Railway "cron" service.
+// Schedule is set in Railway service settings (every 2 hours, UTC) — not here.
+// Job: call the web service's /api/cron/poll, then exit.
+//
+// Env:
+//   WEB_URL      — web service public URL
+//   CRON_SECRET  — same value as the web service
 
 const webUrl = process.env.WEB_URL?.replace(/\/$/, "");
 const secret = process.env.CRON_SECRET;

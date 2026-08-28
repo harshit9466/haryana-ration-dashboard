@@ -12,7 +12,7 @@ import { ok, fail, failFromError } from "@/lib/http";
 async function handle(): Promise<Response> {
   const secret = env().CRON_SECRET;
   if (!secret) {
-    return fail("CRON_SECRET set nahi hai — poll disabled", 503);
+    return fail("CRON_SECRET is not set — poll disabled", 503);
   }
   const auth = (await headers()).get("authorization") ?? "";
   if (auth !== `Bearer ${secret}`) {

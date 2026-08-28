@@ -30,13 +30,13 @@ export function TransactionsTab({
   });
 
   if (summary.loading) {
-    return <Spinner label="Transactions aa rahi hain (poora mahina)…" />;
+    return <Spinner label="Loading transactions (whole month)…" />;
   }
   if (summary.error) {
     return <ErrorBox message={summary.error} />;
   }
   if (!summary.data || summary.data.count === 0) {
-    return <Empty>Is mahine ki koi transaction nahi.</Empty>;
+    return <Empty>No transactions for this month.</Empty>;
   }
 
   const s = summary.data;
@@ -60,7 +60,7 @@ export function TransactionsTab({
 
       {/* day picker */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-muted">Din chuno:</span>
+        <span className="text-xs text-muted">Pick a day:</span>
         {s.byDate.map((d) => (
           <button
             key={d.isoDate}
@@ -80,7 +80,9 @@ export function TransactionsTab({
       {/* selected day rows */}
       {day && (
         <div>
-          {dayView.loading && <Spinner label={`${shortDate(day)} ki rows…`} />}
+          {dayView.loading && (
+            <Spinner label={`Loading ${shortDate(day)} rows…`} />
+          )}
           {dayView.error && <ErrorBox message={dayView.error} />}
           {dayView.data && dayView.data.transactions.length > 0 && (
             <TableScroll>

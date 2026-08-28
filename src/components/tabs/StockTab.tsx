@@ -20,13 +20,13 @@ export function StockTab({
   );
 
   if (loading) {
-    return <Spinner label="Stock register aa raha hai…" />;
+    return <Spinner label="Loading stock register…" />;
   }
   if (error) {
     return <ErrorBox message={error} />;
   }
   if (!data || data.rows.length === 0) {
-    return <Empty>Is mahine ka koi stock record nahi.</Empty>;
+    return <Empty>No stock records for this month.</Empty>;
   }
 
   return (

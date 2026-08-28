@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Haryana Ration Dashboard",
   description:
-    "Haryana PDS (ePOS) ka data ek saaf dashboard me + selected FPS ke liye daily email monitor.",
+    "Haryana PDS (ePOS) data in one clean dashboard, plus a daily email monitor for chosen Fair Price Shops.",
 };
 
 const NAV = [

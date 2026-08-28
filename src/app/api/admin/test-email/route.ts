@@ -4,7 +4,10 @@ import { ok, fail, failFromError } from "@/lib/http";
 import { readJson } from "@/lib/params";
 
 const schema = z.object({
-  emails: z.array(z.string().trim().email()).min(1, "Ek email daalo").max(5),
+  emails: z
+    .array(z.string().trim().email())
+    .min(1, "Enter an email address")
+    .max(5),
 });
 
 /** POST /api/admin/test-email  body: { emails: [...] } */
@@ -16,7 +19,7 @@ export async function POST(req: Request) {
   try {
     const result = await sendTestEmail(parsed.data.emails);
     if (!result.ok) {
-      return fail(result.error ?? "Email nahi gayi", 502);
+      return fail(result.error ?? "Email could not be sent", 502);
     }
     return ok({ sent: true });
   } catch (err) {

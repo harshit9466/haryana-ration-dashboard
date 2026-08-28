@@ -20,13 +20,13 @@ export function DateWiseTab({
   );
 
   if (loading) {
-    return <Spinner label="Date-wise data aa raha hai…" />;
+    return <Spinner label="Loading date-wise data…" />;
   }
   if (error) {
     return <ErrorBox message={error} />;
   }
   if (!data || data.days.length === 0) {
-    return <Empty>Is mahine ka koi transaction nahi.</Empty>;
+    return <Empty>No transactions for this month.</Empty>;
   }
 
   const cols = data.commodityColumns;

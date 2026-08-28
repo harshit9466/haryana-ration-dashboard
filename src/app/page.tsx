@@ -6,7 +6,7 @@ export default function Home() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted">
-          Kisi bhi Rohtak FPS ka stock, din-wise sale, aur transactions.
+          Stock, date-wise sale, and transactions for any Rohtak Fair Price Shop.
         </p>
       </div>
       <Dashboard />

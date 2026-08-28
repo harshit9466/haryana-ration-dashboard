@@ -12,7 +12,7 @@ export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
   const config = useApi<{ defaultSrcNo: string }>("/api/config");
   const captcha = useApi<Captcha>("/api/proxy/captcha");
 
-  // priority: user ne type kiya > URL se aaya (?rc=) > config default
+  // priority: what the user typed > URL param (?rc=) > config default
   const [typedSrcNo, setTypedSrcNo] = useState<string | null>(null);
   const srcNo =
     typedSrcNo ?? (initialRc || config.data?.defaultSrcNo || "");
@@ -49,13 +49,13 @@ export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
         setResult(json.data as Success);
       } else {
         setResult(null);
-        setError(json.error ?? "Lookup fail hua");
-        // captcha galat / expire → naya
+        setError(json.error ?? "Lookup failed");
+        // wrong / expired captcha → get a fresh one
         captcha.reload();
         setCaptchaText("");
       }
     } catch {
-      setError("Network error — dobara try karo");
+      setError("Network error — please try again");
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +100,7 @@ export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
           </span>
           <div className="flex flex-wrap items-center gap-3">
             {captcha.loading ? (
-              <span className="text-xs text-muted">captcha aa raha hai…</span>
+              <span className="text-xs text-muted">loading captcha…</span>
             ) : captcha.data?.imageDataUri ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -109,7 +109,9 @@ export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
                 className="h-10 rounded border border-border bg-white"
               />
             ) : (
-              <span className="text-xs text-red-600">captcha load nahi hua</span>
+              <span className="text-xs text-red-600">
+                captcha failed to load
+              </span>
             )}
             <button
               type="button"
@@ -124,7 +126,7 @@ export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
             <input
               value={captchaText}
               onChange={(e) => setCaptchaText(e.target.value)}
-              placeholder="jo dikhe wo likho"
+              placeholder="type what you see"
               autoFocus={Boolean(initialRc)}
               className="rounded-md border border-border bg-background px-3 py-2"
             />
@@ -137,7 +139,7 @@ export function CardLookup({ initialRc = "" }: { initialRc?: string }) {
             disabled={submitting || !srcNo || !captchaText}
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {submitting ? "Dekh raha hoon…" : "Lookup"}
+            {submitting ? "Looking up…" : "Lookup"}
           </button>
         </div>
       </form>
@@ -153,7 +155,7 @@ function BeneficiaryView({ data }: { data: Success }) {
     <div className="space-y-4">
       <Card title={`Members · RC ${data.rc}`}>
         {data.members.length === 0 ? (
-          <Empty>Koi member nahi mila.</Empty>
+          <Empty>No members found.</Empty>
         ) : (
           <TableScroll>
             <thead>
@@ -186,7 +188,7 @@ function BeneficiaryView({ data }: { data: Success }) {
 
       <Card title={data.entitlementHeading || "Entitlement"}>
         {data.entitlements.length === 0 ? (
-          <Empty>Is mahine ka entitlement data nahi.</Empty>
+          <Empty>No entitlement data for this month.</Empty>
         ) : (
           <TableScroll>
             <thead>
@@ -215,7 +217,7 @@ function BeneficiaryView({ data }: { data: Success }) {
 
       <Card title={data.authHeading || "Authentications"}>
         {data.authentications.length === 0 ? (
-          <Empty>Is mahine koi authentication nahi.</Empty>
+          <Empty>No authentications this month.</Empty>
         ) : (
           <TableScroll>
             <thead>
@@ -244,7 +246,7 @@ function BeneficiaryView({ data }: { data: Success }) {
 
       <Card title={data.txnHeading || "Transactions"}>
         {data.transactions.length === 0 ? (
-          <Empty>Is mahine koi transaction nahi.</Empty>
+          <Empty>No transactions this month.</Empty>
         ) : (
           <TableScroll>
             <thead>

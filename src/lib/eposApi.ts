@@ -306,7 +306,7 @@ export async function getBeneficiary(
       message:
         str(raw?.responseMessage) ||
         str(raw?.respmsg) ||
-        "Beneficiary details nahi mili (captcha galat ya card number galat).",
+        "Couldn't fetch beneficiary details (wrong captcha or card number).",
     };
   }
 

@@ -65,7 +65,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: NextRequest) {
   const fpsId = req.nextUrl.searchParams.get("fpsId");
   if (!fpsId) {
-    return fail("fpsId chahiye", 400);
+    return fail("fpsId is required", 400);
   }
   try {
     await prisma.monitorConfig.delete({ where: { fpsId } });

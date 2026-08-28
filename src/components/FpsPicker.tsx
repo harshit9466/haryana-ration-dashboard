@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dealer } from "@/lib/eposTypes";
 
 /**
- * Searchable FPS dropdown. 256 dealers — naam ya fps_id se filter.
- * Selected `fpsId` parent ko `onChange` se milta hai.
+ * Searchable single-select FPS dropdown. Filters by dealer name or fps_id.
+ * The selected `fpsId` is reported to the parent via `onChange`.
  */
 export function FpsPicker({
   dealers,
@@ -69,12 +69,12 @@ export function FpsPicker({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Naam ya FPS id se search…"
+            placeholder="Search by name or FPS id…"
             className="w-full border-b border-border bg-transparent px-3 py-2 text-sm outline-none"
           />
           <ul className="max-h-64 overflow-y-auto py-1">
             {results.length === 0 && (
-              <li className="px-3 py-2 text-sm text-muted">Kuch nahi mila</li>
+              <li className="px-3 py-2 text-sm text-muted">No matches</li>
             )}
             {results.map((d) => (
               <li key={d.fpsId}>
@@ -99,7 +99,7 @@ export function FpsPicker({
           </ul>
           {query.trim() === "" && dealers.length > 50 && (
             <p className="border-t border-border px-3 py-1.5 text-xs text-muted">
-              Pehle 50 dikha rahe — search karo
+              Showing first 50 — type to search
             </p>
           )}
         </div>

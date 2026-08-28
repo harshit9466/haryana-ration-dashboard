@@ -37,10 +37,12 @@ export function Dashboard() {
   }
 
   if (dealersApi.loading) {
-    return <Spinner label="Dealer list load ho rahi hai…" />;
+    return <Spinner label="Loading dealer list…" />;
   }
   if (dealersApi.error) {
-    return <ErrorBox message={`Dealer list nahi mili: ${dealersApi.error}`} />;
+    return (
+      <ErrorBox message={`Couldn't load dealer list: ${dealersApi.error}`} />
+    );
   }
 
   return (
@@ -100,7 +102,7 @@ export function Dashboard() {
 
       {!fpsId ? (
         <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted">
-          Upar se ek shop select karo.
+          Select a shop above to begin.
         </p>
       ) : (
         <div>

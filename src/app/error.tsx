@@ -9,7 +9,7 @@ export default function Error({
 }) {
   return (
     <div className="mx-auto max-w-md space-y-3 py-16 text-center">
-      <h1 className="text-lg font-semibold">Kuch gadbad ho gayi</h1>
+      <h1 className="text-lg font-semibold">Something went wrong</h1>
       <p className="text-sm text-muted">
         {error.message || "Unexpected error"}
       </p>
@@ -18,7 +18,7 @@ export default function Error({
         onClick={reset}
         className="rounded-md border border-border px-4 py-2 text-sm"
       >
-        Dobara try karo
+        Try again
       </button>
     </div>
   );

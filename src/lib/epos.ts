@@ -147,7 +147,7 @@ async function request<T>({
       return JSON.parse(text) as T;
     } catch {
       throw new EposError(
-        `ePOS ${path} ne valid JSON nahi diya (mila: ${text.slice(0, 120)}…)`,
+        `ePOS ${path} did not return valid JSON (got: ${text.slice(0, 120)}…)`,
       );
     }
   } catch (err) {
@@ -158,7 +158,7 @@ async function request<T>({
       throw new EposError(`ePOS ${path} timeout (${TIMEOUT_MS}ms)`);
     }
     throw new EposError(
-      `ePOS ${path} reachable nahi: ${err instanceof Error ? err.message : "unknown"}`,
+      `ePOS ${path} unreachable: ${err instanceof Error ? err.message : "unknown"}`,
     );
   } finally {
     clearTimeout(timer);
