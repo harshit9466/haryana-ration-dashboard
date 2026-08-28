@@ -41,10 +41,13 @@ transparency endpoints hain (`epos.haryanafood.gov.in`).
 ## 3. The 7 APIs — full reference
 
 **Base:** `https://epos.haryanafood.gov.in`
-**Common:** koi auth header nahi dikha. Sirf API 1 me `JSESSIONID` cookie thi — implement karte
-waqt confirm karenge ki cookie chahiye ya nahi (99% public hai).
+**Auth:** ✅ **Phase 1 me confirm — koi cookie/auth NAHI chahiye** (API 1–5 sab bina session ke chal gaye).
+**Body encoding (⚠️ inconsistent — Phase 1 me discover kiya):**
+- API 2, 3, 4, 6 → `Content-Type: application/json`
+- **API 5 → `application/x-www-form-urlencoded`** (JSON bheja to govt **HTTP 500**)
+- API 1, 7 → GET (query params)
 **Har response me numeric fields kabhi bare number, kabhi `{source, parsedValue}` object** —
-section 5 dekh.
+section 5 dekh. Handled in `src/lib/normalize.ts` `num()`.
 
 Payload tags:
 - 🔴 **DYNAMIC** — har call pe badalta hai (master list se ya user input se aata hai)
@@ -593,8 +596,9 @@ model EmailLog {
 
 | # | Item | Plan |
 |---|---|---|
-| R1 | APIs 2–7 ko `JSESSIONID` cookie chahiye? (sirf API 1 me dikhi thi) | Phase 1 me test. Chahiye to `lib/epos.ts` me ek cookie-jar / session-warm-up call (`GET /` pe JSESSIONID le lo) add kar denge. |
+| R1 | ~~APIs 2–7 ko `JSESSIONID` cookie chahiye?~~ ✅ **Resolved** | Phase 1: API 1–5 bina cookie ke chal gaye. `epos.ts` me cookie-jar hai (no-op abhi), API 6 ke liye ready. |
 | R2 | Govt captcha `salt` session-bound hai? (cookie + salt dono match hone chahiye?) | Phase 3 me test — agar bound hai to captcha + beneficiary call **same** proxy session me chalayenge (server-side cookie forward). |
+| R11 | API 4 heavy — ek shop ka poora mahina ~1200 transactions (sample truncate hua tha) | ✅ `getFpsTransactions` me optional `date` filter + server-side aggregates (`byCommodity`, `byDate`, `totalAmount`). Dashboard date-wise dikhayega. |
 | R3 | Govt API rate-limit / block | Polling gentle rakhenge (15 min, sirf teri FPS, off-hours skip). Proper `User-Agent`. Retry with backoff. |
 | R4 | API 4 response bada (sample 1 MB pe truncate hua tha) | Server-side hi filter/aggregate karke chhota payload frontend ko bhejenge. |
 | R5 | ~~API 1 response missing~~ **Resolved** — API 1 HTML `<option>` deta hai | Proxy regex-parse karega. API 5 primary master rahega. |

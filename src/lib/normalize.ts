@@ -96,3 +96,27 @@ export function hmToMinutes(hm: string): number {
   }
   return +m[1] * 60 + +m[2];
 }
+
+/**
+ * API 1 (`getFPSs`) `text/plain` me HTML `<option>` tags deta hai, JSON nahi.
+ *   <option value='108200100001' >108200100001(AMARJEET KAUR W 9)</option>
+ * → [{ fpsId: "108200100001", dealerName: "AMARJEET KAUR W 9" }]
+ */
+export function parseFpsOptions(
+  html: string,
+): { fpsId: string; dealerName: string }[] {
+  const out: { fpsId: string; dealerName: string }[] = [];
+  const re = /<option\s+value=['"]([^'"]*)['"][^>]*>([^<]*)<\/option>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const fpsId = m[1].trim();
+    if (!fpsId) {
+      continue; // "--select--"
+    }
+    const text = m[2].trim();
+    const paren = text.match(/\(([^)]*)\)\s*$/);
+    const dealerName = str(paren ? paren[1] : text.replace(/^\d+/, ""));
+    out.push({ fpsId, dealerName });
+  }
+  return out;
+}

@@ -1,0 +1,262 @@
+import { eposGet, eposPost } from "@/lib/epos";
+import { cached, TTL } from "@/lib/cache";
+import {
+  num,
+  str,
+  eposDateToIso,
+  parseEposDateTime,
+  parseFpsOptions,
+} from "@/lib/normalize";
+import type {
+  Contact,
+  Dealer,
+  DealersResult,
+  FpsOption,
+  RawDateWiseResponse,
+  RawDealersResponse,
+  RawStockRow,
+  RawTransaction,
+  StockResult,
+  StockRow,
+  DateWiseResult,
+  TransactionsResult,
+  Transaction,
+  CommodityQty,
+} from "@/lib/eposTypes";
+
+// Govt endpoint paths — ek jagah, taaki typo na ho.
+const PATHS = {
+  fpsList: "/Epos_Spring/Common/getFPSs",
+  stockRegister: "/Epos_Spring/fps/getfpsStockregister",
+  dateWise: "/Epos_Spring/fps/dateWiseTransDetails",
+  transactions: "/Epos_Spring/fps/fpstransactionwitoutcatptcha",
+  dealers: "/Epos_Spring/api/fpsdevicemapping/device",
+} as const;
+
+function contact(name: unknown, mobile: unknown): Contact | null {
+  const n = str(name);
+  const m = str(mobile);
+  if (!n && !m) {
+    return null;
+  }
+  return { name: n, mobile: m };
+}
+
+// ── API 5: Dealer Details (master list, cached) ─────────────────────
+export async function getDealers(distCode: string): Promise<DealersResult> {
+  return cached(`dealers:${distCode}`, TTL.oneDay, async () => {
+    // ⚠️ Ye endpoint form-encoded chahta hai — JSON bheja to govt 500 deta hai.
+    const raw = await eposPost<RawDealersResponse>(
+      PATHS.dealers,
+      { dist_code: distCode },
+      { encode: "form" },
+    );
+    const list = Array.isArray(raw?.list) ? raw.list : [];
+    const dealers: Dealer[] = list
+      .filter((d) => str(d.fps_id))
+      .map((d) => ({
+        fpsId: str(d.fps_id),
+        dealerName: str(d.del_name),
+        dealerMobile: str(d.del_mob),
+        terminalId: str(d.terminal_id),
+        nominee1: contact(d.nom_1_name, d.nom_1_mob),
+        nominee2: contact(d.nom_2_name, d.nom_2_mob),
+      }))
+      .sort((a, b) => a.fpsId.localeCompare(b.fpsId));
+
+    return {
+      district: str(raw?.dist_name_en) || distCode,
+      distCode,
+      count: dealers.length,
+      dealers,
+    };
+  });
+}
+
+// ── API 1: FPS list (HTML, cached) ─────────────────────────────────
+export async function getFpsOptions(
+  distCode: string,
+  afsoCode: string,
+): Promise<FpsOption[]> {
+  return cached(`fpslist:${distCode}:${afsoCode}`, TTL.oneDay, async () => {
+    const html = await eposGet<string>(
+      PATHS.fpsList,
+      { dist_code: distCode, afso_code: afsoCode },
+      "text",
+    );
+    return parseFpsOptions(html);
+  });
+}
+
+// ── API 2: FPS Stock Register ──────────────────────────────────────
+export async function getStockRegister(
+  fpsId: string,
+  month: number,
+  year: number,
+): Promise<StockResult> {
+  const raw = await eposPost<RawStockRow[]>(PATHS.stockRegister, {
+    fps_id: fpsId,
+    month: String(month),
+    year: String(year),
+  });
+  const list = Array.isArray(raw) ? raw : [];
+
+  const rows: StockRow[] = list.map((r) => ({
+    commodityId: str(r.commId),
+    commodity: str(r.commNameEn),
+    unit: str(r.commMeasureUnit),
+    allotted: num(r.allottedQty),
+    opening: num(r.ob),
+    received: num(r.receivedQty),
+    extraRo: num(r.extraRo),
+    sixaCase: num(r.sixaCase),
+    issued: num(r.issuedQty),
+    closing: num(r.cb),
+  }));
+
+  const first = list[0] ?? {};
+  return {
+    fpsId,
+    district: str(first.distNameEn),
+    afso: str(first.afso_name_en),
+    month,
+    year,
+    refreshedAt: str(first.refreshTime),
+    rows,
+  };
+}
+
+// ── API 3: Date-wise Transactions ─────────────────────────────────
+export async function getDateWiseTransactions(
+  fpsId: string,
+  distCode: string,
+  month: number,
+  year: number,
+): Promise<DateWiseResult> {
+  const raw = await eposPost<RawDateWiseResponse>(PATHS.dateWise, {
+    dist_code: distCode,
+    fps_id: fpsId,
+    month: String(month),
+    year: String(year),
+  });
+
+  const dayList = Array.isArray(raw?.dateWiseList) ? raw.dateWiseList : [];
+  const columns = new Set<string>();
+
+  const days = dayList.map((d) => {
+    const commodities: CommodityQty[] = (d.commoditylist ?? [])
+      .map((c) => {
+        const name = str(c.comm_short) || str(c.comm_name_en);
+        const qty = num(c.sale_qty);
+        if (name) {
+          columns.add(name);
+        }
+        return { commodityId: Number(c.comm_id ?? 0), commodity: name, qty };
+      })
+      .filter((c) => c.commodity);
+
+    return {
+      date: str(d.date),
+      isoDate: eposDateToIso(d.date),
+      cards: num(d.avilcards),
+      commodities,
+      totalQty: commodities.reduce((sum, c) => sum + c.qty, 0),
+    };
+  });
+
+  return {
+    fpsId,
+    heading: str(raw?.heading),
+    monthName: str(raw?.monthname),
+    year: Number(raw?.year ?? year),
+    commodityColumns: [...columns],
+    days,
+  };
+}
+
+// ── API 4: FPS-wise Transactions ─────────────────────────────────
+/**
+ * @param dateIso  optional "YYYY-MM-DD" — sirf us din ki transactions (govt poora
+ *                 mahina deta hai, ek shop ka 1000+ ho sakta hai). Aggregates
+ *                 filtered set pe hi bante hain.
+ */
+export async function getFpsTransactions(
+  fpsId: string,
+  month: number,
+  year: number,
+  dateIso?: string,
+): Promise<TransactionsResult> {
+  const raw = await eposPost<RawTransaction[]>(PATHS.transactions, {
+    fps_id: fpsId,
+    month: String(month),
+    year: String(year),
+  });
+  let list = Array.isArray(raw) ? raw : [];
+  if (dateIso) {
+    list = list.filter((t) => str(t.loginTime).startsWith(dateIso));
+  }
+
+  const transactions: Transaction[] = list.map((t) => {
+    const commodities: CommodityQty[] = (t.commodityList ?? [])
+      .map((c) => ({
+        commodityId: Number(c.comm_id ?? 0),
+        commodity: str(c.comm_name_en) || str(c.comm_short),
+        qty: num(c.sale_qty),
+      }))
+      .filter((c) => c.commodity);
+
+    const at = parseEposDateTime(t.loginTime);
+
+    return {
+      rc: str(t.existingRcNumber),
+      status: str(t.transStatus),
+      scheme: str(t.schemeShortName),
+      receiptId: str(t.receiptId),
+      txnId: str(t.txnId),
+      authAt: str(t.portCheck),
+      amount: num(t.amount),
+      durationSec: num(t.transTime),
+      at: at ? at.toISOString() : null,
+      loginTime: str(t.loginTime),
+      authType: str(t.auth_type),
+      commodities,
+    };
+  });
+
+  // Aggregates — dashboard + monitor dono use karenge.
+  const byCommodityMap = new Map<string, number>();
+  const byDateMap = new Map<string, number>();
+  let totalAmount = 0;
+
+  for (const t of transactions) {
+    totalAmount += t.amount;
+    const iso = t.loginTime.slice(0, 10);
+    if (iso) {
+      byDateMap.set(iso, (byDateMap.get(iso) ?? 0) + 1);
+    }
+    for (const c of t.commodities) {
+      byCommodityMap.set(
+        c.commodity,
+        (byCommodityMap.get(c.commodity) ?? 0) + c.qty,
+      );
+    }
+  }
+
+  return {
+    fpsId,
+    month,
+    year,
+    dateIso: dateIso ?? null,
+    count: transactions.length,
+    totalAmount,
+    byCommodity: [...byCommodityMap].map(([commodity, qty]) => ({
+      commodityId: 0,
+      commodity,
+      qty,
+    })),
+    byDate: [...byDateMap]
+      .map(([isoDate, count]) => ({ isoDate, count }))
+      .sort((a, b) => a.isoDate.localeCompare(b.isoDate)),
+    transactions,
+  };
+}

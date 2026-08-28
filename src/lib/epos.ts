@@ -51,15 +51,43 @@ type EposRequest = {
   method: "GET" | "POST";
   query?: Record<string, string | number | undefined>;
   body?: unknown;
+  /**
+   * Body encoding. Govt API inconsistent hai:
+   *  - `"json"` (default) → API 2, 3, 4, 6
+   *  - `"form"` (x-www-form-urlencoded) → API 5 (dealers). JSON bheja to 500.
+   */
+  encode?: "json" | "form";
   /** `"json"` (default) ya `"text"` — API 1 HTML/text deta hai. */
   parse?: "json" | "text";
 };
+
+function encodeBody(
+  body: unknown,
+  encode: "json" | "form",
+): { body: string; contentType: string } {
+  if (encode === "form") {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(
+      (body ?? {}) as Record<string, unknown>,
+    )) {
+      if (value !== undefined && value !== null) {
+        params.set(key, String(value));
+      }
+    }
+    return {
+      body: params.toString(),
+      contentType: "application/x-www-form-urlencoded",
+    };
+  }
+  return { body: JSON.stringify(body), contentType: "application/json" };
+}
 
 async function request<T>({
   path,
   method,
   query,
   body,
+  encode = "json",
   parse = "json",
 }: EposRequest): Promise<T> {
   const url = new URL(path, env().EPOS_BASE_URL);
@@ -71,6 +99,8 @@ async function request<T>({
     }
   }
 
+  const encoded = body !== undefined ? encodeBody(body, encode) : null;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -79,11 +109,11 @@ async function request<T>({
       method,
       headers: {
         ...BASE_HEADERS,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(encoded ? { "Content-Type": encoded.contentType } : {}),
         ...(cookieJar ? { Cookie: cookieJar } : {}),
         Referer: `${env().EPOS_BASE_URL}/`,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: encoded ? encoded.body : undefined,
       signal: controller.signal,
       cache: "no-store",
     });
@@ -91,8 +121,9 @@ async function request<T>({
     rememberCookies(res);
 
     if (!res.ok) {
+      const snippet = (await res.text().catch(() => "")).slice(0, 160);
       throw new EposError(
-        `ePOS ${method} ${path} → HTTP ${res.status}`,
+        `ePOS ${method} ${path} → HTTP ${res.status}${snippet ? ` — ${snippet}` : ""}`,
         res.status,
       );
     }
@@ -135,7 +166,13 @@ export function eposGet<T>(
 export function eposPost<T>(
   path: string,
   body: unknown,
-  parse?: EposRequest["parse"],
+  opts?: { encode?: EposRequest["encode"]; parse?: EposRequest["parse"] },
 ): Promise<T> {
-  return request<T>({ path, method: "POST", body, parse });
+  return request<T>({
+    path,
+    method: "POST",
+    body,
+    encode: opts?.encode,
+    parse: opts?.parse,
+  });
 }
