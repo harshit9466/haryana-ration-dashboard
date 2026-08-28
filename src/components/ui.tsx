@@ -22,6 +22,47 @@ export function Card({
   );
 }
 
+export function RefreshButton({
+  onClick,
+  busy = false,
+}: {
+  onClick: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      title="Reload this data"
+      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+    >
+      <span className={busy ? "inline-block animate-spin" : ""}>↻</span>
+      {busy ? "Refreshing…" : "Refresh"}
+    </button>
+  );
+}
+
+/** Wraps a tab's content with a Refresh button at the top-right. */
+export function TabShell({
+  refreshing,
+  reload,
+  children,
+}: {
+  refreshing: boolean;
+  reload: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <RefreshButton onClick={reload} busy={refreshing} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function Spinner({ label = "Loading…" }: { label?: string }) {
   return (
     <div className="flex items-center gap-2 py-8 text-sm text-muted">

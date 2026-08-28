@@ -3,7 +3,15 @@
 import { useApi } from "@/lib/useApi";
 import { qty } from "@/lib/format";
 import type { DateWiseResult } from "@/lib/eposTypes";
-import { Spinner, ErrorBox, Empty, TableScroll, Th, Td } from "@/components/ui";
+import {
+  Spinner,
+  ErrorBox,
+  Empty,
+  TableScroll,
+  Th,
+  Td,
+  TabShell,
+} from "@/components/ui";
 
 export function DateWiseTab({
   fpsId,
@@ -14,7 +22,7 @@ export function DateWiseTab({
   month: number;
   year: number;
 }) {
-  const { data, error, loading } = useApi<DateWiseResult>(
+  const { data, error, loading, refreshing, reload } = useApi<DateWiseResult>(
     "/api/proxy/date-wise",
     { method: "POST", body: { fpsId, month, year } },
   );
@@ -22,13 +30,21 @@ export function DateWiseTab({
   if (loading) {
     return <Spinner label="Loading date-wise data…" />;
   }
-  if (error) {
-    return <ErrorBox message={error} />;
-  }
-  if (!data || data.days.length === 0) {
-    return <Empty>No transactions for this month.</Empty>;
-  }
 
+  return (
+    <TabShell refreshing={refreshing} reload={reload}>
+      {error ? (
+        <ErrorBox message={error} />
+      ) : !data || data.days.length === 0 ? (
+        <Empty>No transactions for this month.</Empty>
+      ) : (
+        <DateWiseTable data={data} />
+      )}
+    </TabShell>
+  );
+}
+
+function DateWiseTable({ data }: { data: DateWiseResult }) {
   const cols = data.commodityColumns;
   const totalCards = data.days.reduce((s, d) => s + d.cards, 0);
   const colTotals = cols.map((c) =>
