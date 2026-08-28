@@ -581,16 +581,18 @@ model EmailLog {
 
 ## 12. Build phases
 
-| Phase | Deliverable | "Done" jab |
+| Phase | Deliverable | Status |
 |---|---|---|
-| **0** | Repo scaffold — Next.js + TS + Tailwind + Prisma + `.env.example` + README | `npm run dev` chale, localhost khule |
-| **1** | `lib/epos.ts` + `lib/normalize.ts` + proxy routes for **API 5, 2, 3, 4** | curl se saare 4 sahi normalized JSON dein |
-| **2** | Dashboard UI — FPS picker (master list) + month/year + 3 tabs (Stock / Date-wise / All Txns) | ek FPS select karke teenो views dikhein |
-| **3** | Card lookup — API 7 captcha box + API 6 beneficiary + 4 result cards | tera card + captcha se members/entitlement dikhe |
-| **4** | DB + admin page — MonitorConfig CRUD + `mailer.ts` + test-email | admin page se FPS add ho, test mail aaye |
-| **5** | `monitor.ts` + `/api/cron/poll` + `scripts/cron-poll.mjs` | local pe manually trigger karke start/EOD mail aaye |
-| **6** | Auth middleware + polish + error/empty/loading states | poori site password ke peeche, koi crash nahi |
-| **7** | GitHub push + Railway deploy (2 services + Postgres) via MCP | live URL pe sab kaam kare |
+| **0** | Repo scaffold — Next.js 16 + TS + Tailwind v4 + Prisma 7 + `.env.example` + README | ✅ done (`c1f6397`) |
+| **1** | `lib/epos.ts` + `lib/normalize.ts` + proxy routes API 5, 2, 3, 4 (+1) | ✅ done (`244cfc4`) — live tested |
+| **2** | Dashboard UI — FPS picker + month + 3 tabs | ✅ done (`2a91da8`) |
+| **3** | Card lookup — API 7 captcha + API 6 beneficiary + 4 sections | ✅ done (`cdfd458`) — real lookup verified |
+| **4** | DB + admin page — MonitorConfig CRUD + `mailer.ts` + test-email | ✅ done (`ac565fd`) |
+| **5** | `monitor.ts` + `/api/cron/poll` + `scripts/cron-poll.mjs` | ✅ done (`d9d3ab2`) — start/EOD flow verified |
+| **6** | Auth (`proxy.ts`) + error/not-found pages | ✅ done (`be198c2`) |
+| **7** | GitHub push + Railway deploy (2 services + Postgres) via MCP | ⏳ pending — needs Harshit (secrets, repo visibility) |
+
+**Local pe sab chal raha hai.** 7 commits, abhi push nahi hue.
 
 ---
 
