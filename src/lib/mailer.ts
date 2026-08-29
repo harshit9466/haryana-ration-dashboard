@@ -15,24 +15,15 @@ const RESEND_URL = "https://api.resend.com/emails";
 
 export type SendResult = { ok: boolean; error?: string };
 
-export type Commodity = { commodity: string; qty: number };
-
-export type ShopOpenedLine = {
+export type ShopSnapshot = {
   label: string;
   fpsId: string;
-  openedAt: string | null; // display time, or null if not opened
+  opened: boolean;
+  firstTxnAt: string | null; // display time, or null
   cards: number;
-  commodities: Commodity[];
-};
-
-export type ShopEodLine = {
-  label: string;
-  fpsId: string;
-  txnCount: number;
   totalAmount: number;
-  firstAt: string;
-  lastAt: string;
-  commodities: Commodity[];
+  commodities: { commodity: string; qty: number }[];
+  error?: string;
 };
 
 async function send(
@@ -116,38 +107,46 @@ function shell(body: string): string {
   return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:620px;margin:0 auto;color:#1e293b;font-size:14px;line-height:1.5">${body}<p style="color:#94a3b8;font-size:12px;margin-top:28px">Haryana Ration Dashboard · automated</p></div>`;
 }
 
-function commodityText(items: Commodity[]): string {
+function commodityText(items: { commodity: string; qty: number }[]): string {
   const nonZero = items.filter((c) => c.qty);
   return nonZero.length
     ? nonZero.map((c) => `${c.commodity} ${qty(c.qty)}`).join(", ")
     : "—";
 }
 
-function openedCard(s: ShopOpenedLine): string {
-  return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin:8px 0">
-    <div style="font-weight:600">${s.label} <span style="color:#94a3b8;font-weight:400;font-size:12px">${s.fpsId}</span></div>
-    ${
-      s.openedAt
-        ? `<div style="color:#15803d">🟢 opened ${s.openedAt} · ${plural(s.cards, "card")} so far</div>
-           <div style="color:#475569;font-size:13px">${commodityText(s.commodities)}</div>`
-        : `<div style="color:#b45309">⏳ not opened yet</div>`
-    }
-  </div>`;
+function shopCard(s: ShopSnapshot): string {
+  const head = `<div style="font-weight:600">${s.label} <span style="color:#94a3b8;font-weight:400;font-size:12px">${s.fpsId}</span></div>`;
+  let body: string;
+  if (s.error) {
+    body = `<div style="color:#b45309">⚠️ couldn't check — ${s.error}</div>`;
+  } else if (s.opened) {
+    body = `<div style="color:#15803d">🟢 open${s.firstTxnAt ? ` since ${s.firstTxnAt}` : ""} · ${plural(s.cards, "card")} · ${rupees(s.totalAmount)}</div>
+      <div style="color:#475569;font-size:13px">${commodityText(s.commodities)}</div>`;
+  } else {
+    body = `<div style="color:#94a3b8">⏳ not open yet</div>`;
+  }
+  return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin:8px 0">${head}${body}</div>`;
 }
 
-function eodCard(s: ShopEodLine): string {
-  const rows = s.commodities
-    .filter((c) => c.qty)
-    .map(
-      (c) =>
-        `<tr><td style="padding:1px 14px 1px 0;color:#475569">${c.commodity}</td><td style="padding:1px 0;text-align:right"><strong>${qty(c.qty)}</strong></td></tr>`,
-    )
-    .join("");
-  return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin:8px 0">
-    <div style="font-weight:600">${s.label} <span style="color:#94a3b8;font-weight:400;font-size:12px">${s.fpsId}</span></div>
-    <div style="color:#475569">${s.txnCount} transactions · ${rupees(s.totalAmount)} · ${s.firstAt} → ${s.lastAt}</div>
-    <table style="border-collapse:collapse;margin-top:6px">${rows || '<tr><td style="color:#94a3b8">no sales</td></tr>'}</table>
-  </div>`;
+// ── status report ─────────────────────────────────────────────────
+export function sendStatusReport(
+  to: string[],
+  data: { dateStr: string; atTime: string; shops: ShopSnapshot[] },
+): Promise<SendResult> {
+  const openCount = data.shops.filter((s) => s.opened).length;
+  const oneFps =
+    data.shops.length === 1 ? data.shops[0].fpsId : undefined;
+  return send(
+    to,
+    `🌾 Ration status @ ${data.atTime} — ${openCount}/${data.shops.length} open (${data.dateStr})`,
+    shell(
+      `<h2 style="margin:0 0 4px">Status at ${data.atTime} — ${data.dateStr}</h2>
+       <p style="color:#475569;margin-top:0">${openCount} of ${plural(data.shops.length, "shop")} open.</p>
+       ${data.shops.map(shopCard).join("")}`,
+    ),
+    "report",
+    oneFps,
+  );
 }
 
 // ── test ──────────────────────────────────────────────────────────
@@ -156,80 +155,8 @@ export function sendTestEmail(to: string[]): Promise<SendResult> {
     to,
     "Ration Dashboard — test email ✅",
     shell(
-      `<h2 style="margin:0 0 8px">Test email received 🎉</h2><p>If you got this, Resend is configured correctly. Monitor alerts will arrive the same way.</p>`,
+      `<h2 style="margin:0 0 8px">Test email received 🎉</h2><p>If you got this, Resend is configured correctly. Status reports will arrive the same way.</p>`,
     ),
     "test",
-  );
-}
-
-// ── combined "shops opened" digest ───────────────────────────────
-export function sendOpenedDigest(
-  to: string[],
-  dateStr: string,
-  shops: ShopOpenedLine[],
-): Promise<SendResult> {
-  const openCount = shops.filter((s) => s.openedAt).length;
-  return send(
-    to,
-    `🟢 Ration update — ${openCount}/${shops.length} shops open (${dateStr})`,
-    shell(
-      `<h2 style="margin:0 0 4px">Shops open today — ${dateStr}</h2>
-       <p style="color:#475569;margin-top:0">${openCount} of ${plural(shops.length, "monitored shop")} have started giving ration.</p>
-       ${shops.map(openedCard).join("")}`,
-    ),
-    "opened-digest",
-  );
-}
-
-// ── combined end-of-day digest ──────────────────────────────────
-export function sendEodDigest(
-  to: string[],
-  dateStr: string,
-  shops: ShopEodLine[],
-): Promise<SendResult> {
-  const totalTxns = shops.reduce((a, s) => a + s.txnCount, 0);
-  const totalAmt = shops.reduce((a, s) => a + s.totalAmount, 0);
-  return send(
-    to,
-    `📊 End of day — ${plural(shops.length, "shop")}, ${plural(totalTxns, "transaction")} (${dateStr})`,
-    shell(
-      `<h2 style="margin:0 0 4px">End of day — ${dateStr}</h2>
-       <p style="color:#475569;margin-top:0">Across ${plural(shops.length, "shop")}: ${plural(totalTxns, "transaction")} · ${rupees(totalAmt)}</p>
-       ${shops.map(eodCard).join("")}`,
-    ),
-    "eod-digest",
-  );
-}
-
-// ── per-shop override emails ────────────────────────────────────
-export function sendOpenedSingle(
-  to: string[],
-  shop: ShopOpenedLine,
-): Promise<SendResult> {
-  return send(
-    to,
-    `🟢 ${shop.label} started giving ration today`,
-    shell(
-      `<h2 style="margin:0 0 8px">🟢 ${shop.label} is open</h2>
-       <p>First transaction at ${shop.openedAt}. ${plural(shop.cards, "card")} so far · ${commodityText(shop.commodities)}</p>`,
-    ),
-    "opened",
-    shop.fpsId,
-  );
-}
-
-export function sendEodSingle(
-  to: string[],
-  dateStr: string,
-  shop: ShopEodLine,
-): Promise<SendResult> {
-  return send(
-    to,
-    `📊 ${shop.label} — end of day (${dateStr})`,
-    shell(
-      `<h2 style="margin:0 0 4px">${shop.label} — ${dateStr}</h2>${eodCard(shop)}`,
-    ),
-    "eod",
-    shop.fpsId,
   );
 }

@@ -16,67 +16,64 @@ datasource db {
 
 /// Global monitor settings. Single row (id = 1).
 model Settings {
-  id               Int      @id @default(1)
-  notifyEmails     String[] // recipients for both digest emails
-  pollFrom         String   @default("05:00") // IST "HH:mm" — don't poll before this
-  openedDigestTime String   @default("13:00") // IST "HH:mm" — send "shops opened" digest by this time
-  eodDigestTime    String   @default("21:00") // IST "HH:mm" — send end-of-day digest at this time
-  updatedAt        DateTime @updatedAt
+  id           Int      @id @default(1)
+  notifyEmails String[] // recipients for the status emails
+  /// IST "HH:mm" times at which to send a combined status report. The last one
+  /// of the day is effectively the end-of-day report.
+  reportTimes  String[] @default(["09:30", "11:30", "14:00", "18:00", "21:00"])
+  updatedAt    DateTime @updatedAt
 
   @@map("settings")
 }
 
 /// One monitored Fair Price Shop. Managed from the admin page.
 model MonitorConfig {
-  id             Int      @id @default(autoincrement())
-  fpsId          String   @unique
-  label          String // dealer name (from the master list), display only
-  distCode       String   @default("073")
-  pollEnabled    Boolean  @default(true)
-  /// If set, this shop is excluded from the "shops opened" digest and gets its
-  /// own opened email at this IST "HH:mm" instead.
-  openedOverride String?
-  /// If set, this shop is excluded from the end-of-day digest and gets its own
-  /// EOD email at this IST "HH:mm" instead.
-  eodOverride    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  fpsId       String   @unique
+  label       String // dealer name (from the master list), display only
+  distCode    String   @default("073")
+  pollEnabled Boolean  @default(true)
+  /// Per-shop override. If non-empty, this shop is excluded from the global
+  /// report and gets its own email at these IST "HH:mm" times instead.
+  reportTimes String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("monitor_config")
 }
 
-/// One monitored shop's state for one day. New row per day (lazily). This is
-/// where idempotency comes from.
+/// One monitored shop's state for one day (for the admin display). New row per
+/// day, lazily.
 model DailyMonitorState {
-  id                   Int       @id @default(autoincrement())
-  fpsId                String
-  date                 String // IST "YYYY-MM-DD"
-  openedAt             DateTime? // set when we first detected a transaction today
-  firstTxnAt           String? // government loginTime of that first transaction
-  lastSeenTxnCount     Int       @default(0)
-  lastPolledAt         DateTime?
-  overrideOpenedSentAt DateTime? // per-shop opened email sent (openedOverride shops)
-  overrideEodSentAt    DateTime? // per-shop EOD email sent (eodOverride shops)
+  id               Int       @id @default(autoincrement())
+  fpsId            String
+  date             String // IST "YYYY-MM-DD"
+  openedAt         DateTime? // when we first saw a transaction today
+  firstTxnAt       String? // government loginTime of that first transaction
+  lastSeenTxnCount Int       @default(0)
+  lastPolledAt     DateTime?
 
   @@unique([fpsId, date])
   @@map("daily_monitor_state")
 }
 
-/// The two combined digest emails for one day. New row per day.
-model DailyDigestState {
-  id                 Int       @id @default(autoincrement())
-  date               String    @unique // IST "YYYY-MM-DD"
-  openedDigestSentAt DateTime?
-  eodDigestSentAt    DateTime?
+/// Which report times have already been emailed for a given day and scope.
+/// scope = "global" or a specific fpsId (for per-shop overrides).
+model DailyReportState {
+  id        Int      @id @default(autoincrement())
+  date      String // IST "YYYY-MM-DD"
+  scope     String // "global" | fpsId
+  sentTimes String[] @default([])
 
-  @@map("daily_digest_state")
+  @@unique([date, scope])
+  @@map("daily_report_state")
 }
 
 /// A record of every email sent — for debugging ("why didn't I get the mail").
 model EmailLog {
   id      Int      @id @default(autoincrement())
   fpsId   String?
-  kind    String // "opened-digest" | "eod-digest" | "opened" | "eod" | "test"
+  kind    String // "report" | "test"
   to      String
   subject String
   ok      Boolean

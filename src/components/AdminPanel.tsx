@@ -13,8 +13,8 @@ type Shop = {
   label: string;
   distCode: string;
   pollEnabled: boolean;
-  openedOverride: string | null;
-  eodOverride: string | null;
+  reportTimes: string[];
+  reportsSent: string[];
   today: {
     openedAt: string | null;
     firstTxnAt: string | null;
@@ -23,20 +23,8 @@ type Shop = {
   } | null;
 };
 
-type ConfigData = {
-  digest: {
-    openedDigestSentAt: string | null;
-    eodDigestSentAt: string | null;
-  } | null;
-  shops: Shop[];
-};
-
-type SettingsData = {
-  notifyEmails: string[];
-  pollFrom: string;
-  openedDigestTime: string;
-  eodDigestTime: string;
-};
+type ConfigData = { globalReportsSent: string[]; shops: Shop[] };
+type SettingsData = { notifyEmails: string[]; reportTimes: string[] };
 
 export function AdminPanel() {
   const dealersApi = useApi<DealersResult>("/api/proxy/dealers");
@@ -48,21 +36,18 @@ export function AdminPanel() {
   }
 
   const dealers = dealersApi.data?.dealers ?? [];
-  const data = configApi.data ?? { digest: null, shops: [] };
+  const data = configApi.data ?? { globalReportsSent: [], shops: [] };
   const settings = settingsApi.data;
 
   return (
     <div className="space-y-6">
       {settings && (
-        <SettingsCard
-          initial={settings}
-          onSaved={() => settingsApi.reload()}
-        />
+        <SettingsCard initial={settings} onSaved={() => settingsApi.reload()} />
       )}
 
       <Card
         title="Monitored shops"
-        right={<RunPollButton onDone={() => configApi.reload()} />}
+        right={<PollButtons onDone={() => configApi.reload()} />}
       >
         {configApi.error ? (
           <ErrorBox message={configApi.error} />
@@ -70,16 +55,12 @@ export function AdminPanel() {
           <Empty>No shops monitored yet. Add some below.</Empty>
         ) : (
           <>
-            {data.digest && (
-              <p className="mb-3 text-xs text-muted">
-                Today&apos;s digests:{" "}
-                {data.digest.openedDigestSentAt
-                  ? "opened ✓"
-                  : "opened pending"}{" "}
-                ·{" "}
-                {data.digest.eodDigestSentAt ? "EOD ✓" : "EOD pending"}
-              </p>
-            )}
+            <p className="mb-3 text-xs text-muted">
+              Today&apos;s global reports sent:{" "}
+              {data.globalReportsSent.length
+                ? data.globalReportsSent.join(", ")
+                : "none yet"}
+            </p>
             <ul className="divide-y divide-border">
               {data.shops.map((s) => (
                 <ShopRow
@@ -108,6 +89,51 @@ export function AdminPanel() {
   );
 }
 
+// ── time list editor ──────────────────────────────────────────────
+function TimeListEditor({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {value.map((t, i) => (
+        <span
+          key={i}
+          className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1"
+        >
+          <input
+            type="time"
+            value={t}
+            onChange={(e) => {
+              const next = [...value];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+            className="bg-transparent text-sm outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => onChange(value.filter((_, j) => j !== i))}
+            className="text-xs text-muted hover:text-foreground"
+          >
+            ✕
+          </button>
+        </span>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...value, "12:00"])}
+        className="rounded-md border border-dashed border-border px-2 py-1 text-xs text-muted hover:text-foreground"
+      >
+        + add time
+      </button>
+    </div>
+  );
+}
+
 // ── global settings ───────────────────────────────────────────────
 function SettingsCard({
   initial,
@@ -117,9 +143,7 @@ function SettingsCard({
   onSaved: () => void;
 }) {
   const [emails, setEmails] = useState(initial.notifyEmails.join(", "));
-  const [pollFrom, setPollFrom] = useState(initial.pollFrom);
-  const [openedTime, setOpenedTime] = useState(initial.openedDigestTime);
-  const [eodTime, setEodTime] = useState(initial.eodDigestTime);
+  const [times, setTimes] = useState<string[]>(initial.reportTimes);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -135,9 +159,7 @@ function SettingsCard({
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
-        pollFrom,
-        openedDigestTime: openedTime,
-        eodDigestTime: eodTime,
+        reportTimes: times,
       }),
     });
     const json = await res.json();
@@ -148,16 +170,17 @@ function SettingsCard({
         : { ok: false, text: json.error ?? "Save failed" },
     );
     if (json.ok) {
+      setTimes(json.data.reportTimes ?? times);
       onSaved();
     }
   }
 
   return (
     <Card title="Settings">
-      <form onSubmit={save} className="space-y-3 text-sm">
+      <form onSubmit={save} className="space-y-4 text-sm">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-muted">
-            Notification emails (comma-separated) — both digests go here
+            Notification emails (comma-separated)
           </span>
           <input
             value={emails}
@@ -165,23 +188,15 @@ function SettingsCard({
             className="w-full max-w-md rounded-md border border-border bg-background px-3 py-2"
           />
         </label>
-        <div className="flex flex-wrap gap-3">
-          <TimeField
-            label="Start polling at"
-            value={pollFrom}
-            onChange={setPollFrom}
-          />
-          <TimeField
-            label='"Shops opened" digest by'
-            value={openedTime}
-            onChange={setOpenedTime}
-          />
-          <TimeField
-            label="End-of-day digest at"
-            value={eodTime}
-            onChange={setEodTime}
-          />
+
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted">
+            Report times (IST) — a status email goes out at each. The last one is
+            your end-of-day report. Checked every ~15 min.
+          </span>
+          <TimeListEditor value={times} onChange={setTimes} />
         </div>
+
         <button
           type="submit"
           disabled={saving}
@@ -211,6 +226,7 @@ function ShopRow({
 }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [times, setTimes] = useState<string[]>(shop.reportTimes);
 
   async function patch(body: Record<string, unknown>) {
     setBusy(true);
@@ -222,8 +238,7 @@ function ShopRow({
         label: shop.label,
         distCode: shop.distCode,
         pollEnabled: shop.pollEnabled,
-        openedOverride: shop.openedOverride,
-        eodOverride: shop.eodOverride,
+        reportTimes: shop.reportTimes,
         ...body,
       }),
     });
@@ -240,10 +255,10 @@ function ShopRow({
 
   const t = shop.today;
   const status = !t
-    ? "not polled yet today"
+    ? "not checked yet today"
     : t.openedAt
-      ? `opened${shop.today?.firstTxnAt ? " " + dateTime(t.firstTxnAt) : ""} · ${t.lastSeenTxnCount} txns`
-      : `polled, ${t.lastSeenTxnCount} txns — not open yet`;
+      ? `open${t.firstTxnAt ? " since " + dateTime(t.firstTxnAt) : ""} · ${t.lastSeenTxnCount} txns`
+      : `checked ${t.lastPolledAt ? dateTime(t.lastPolledAt) : ""} — not open yet`;
 
   return (
     <li className="py-3 text-sm">
@@ -254,13 +269,14 @@ function ShopRow({
             <span className="font-mono text-xs text-muted">{shop.fpsId}</span>
           </div>
           <div className="text-xs text-accent">{status}</div>
-          {(shop.openedOverride || shop.eodOverride) && (
-            <div className="text-xs text-muted">
-              override:
-              {shop.openedOverride ? ` opened ${shop.openedOverride}` : ""}
-              {shop.eodOverride ? ` EOD ${shop.eodOverride}` : ""}
-            </div>
-          )}
+          <div className="text-xs text-muted">
+            {shop.reportTimes.length
+              ? `own report times: ${shop.reportTimes.join(", ")}`
+              : "in the global report"}
+            {shop.reportsSent.length
+              ? ` · sent today: ${shop.reportsSent.join(", ")}`
+              : ""}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -294,62 +310,26 @@ function ShopRow({
       </div>
 
       {editing && (
-        <EditOverrides
-          shop={shop}
-          onSave={async (opened, eod) => {
-            await patch({ openedOverride: opened, eodOverride: eod });
-            setEditing(false);
-          }}
-        />
+        <div className="mt-3 rounded-md border border-border bg-background p-3">
+          <p className="mb-2 text-xs text-muted">
+            Leave empty to keep this shop in the combined global report. Add times
+            to get a separate email for just this shop instead.
+          </p>
+          <TimeListEditor value={times} onChange={setTimes} />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              await patch({ reportTimes: times });
+              setEditing(false);
+            }}
+            className="mt-3 rounded-md bg-accent px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
+          >
+            Save
+          </button>
+        </div>
       )}
     </li>
-  );
-}
-
-function EditOverrides({
-  shop,
-  onSave,
-}: {
-  shop: Shop;
-  onSave: (opened: string | null, eod: string | null) => Promise<void>;
-}) {
-  const [opened, setOpened] = useState(shop.openedOverride ?? "");
-  const [eod, setEod] = useState(shop.eodOverride ?? "");
-  const [saving, setSaving] = useState(false);
-
-  return (
-    <div className="mt-3 rounded-md border border-border bg-background p-3">
-      <p className="mb-2 text-xs text-muted">
-        Leave blank to include this shop in the combined digests. Set a time to
-        get a separate email for just this shop instead.
-      </p>
-      <div className="flex flex-wrap items-end gap-3">
-        <TimeField
-          label="Opened email at (override)"
-          value={opened}
-          onChange={setOpened}
-          allowEmpty
-        />
-        <TimeField
-          label="EOD email at (override)"
-          value={eod}
-          onChange={setEod}
-          allowEmpty
-        />
-        <button
-          type="button"
-          disabled={saving}
-          onClick={async () => {
-            setSaving(true);
-            await onSave(opened || null, eod || null);
-            setSaving(false);
-          }}
-          className="rounded-md bg-accent px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -407,7 +387,9 @@ function AddShops({
         disabled={picked.length === 0 || saving}
         className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
-        {saving ? "Adding…" : `Add ${picked.length || ""} shop${picked.length === 1 ? "" : "s"}`.trim()}
+        {saving
+          ? "Adding…"
+          : `Add ${picked.length || ""} shop${picked.length === 1 ? "" : "s"}`.trim()}
       </button>
       {msg && (
         <span
@@ -420,63 +402,31 @@ function AddShops({
   );
 }
 
-// ── shared bits ────────────────────────────────────────────────
-function TimeField({
-  label,
-  value,
-  onChange,
-  allowEmpty = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  allowEmpty?: boolean;
-}) {
-  return (
-    <label className="text-sm">
-      <span className="mb-1 block text-xs font-medium text-muted">{label}</span>
-      <div className="flex items-center gap-1">
-        <input
-          type="time"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-2"
-        />
-        {allowEmpty && value && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="text-xs text-muted underline"
-          >
-            clear
-          </button>
-        )}
-      </div>
-    </label>
-  );
-}
-
-function RunPollButton({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
+// ── poll buttons ───────────────────────────────────────────────
+function PollButtons({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState<"" | "check" | "report">("");
   const [note, setNote] = useState<string | null>(null);
 
-  async function run() {
-    setBusy(true);
+  async function hit(path: string, which: "check" | "report") {
+    setBusy(which);
     setNote(null);
     try {
-      const res = await fetch("/api/admin/run-poll", { method: "POST" });
+      const res = await fetch(path, { method: "POST" });
       const json = await res.json();
       setNote(
         json.ok
           ? json.data.results
-              .map((r: { scope: string; action: string }) => `${r.scope}: ${r.action}`)
+              .map(
+                (r: { scope: string; action: string }) =>
+                  `${r.scope}: ${r.action}`,
+              )
               .join(" · ") || "nothing to do"
-          : json.error ?? "failed",
+          : (json.error ?? "failed"),
       );
     } catch {
       setNote("network error");
     } finally {
-      setBusy(false);
+      setBusy("");
       onDone();
     }
   }
@@ -484,17 +434,25 @@ function RunPollButton({ onDone }: { onDone: () => void }) {
   return (
     <div className="flex items-center gap-2">
       {note && (
-        <span className="max-w-md truncate text-xs text-muted" title={note}>
+        <span className="max-w-sm truncate text-xs text-muted" title={note}>
           {note}
         </span>
       )}
       <button
         type="button"
-        onClick={run}
-        disabled={busy}
+        onClick={() => hit("/api/admin/run-poll", "check")}
+        disabled={busy !== ""}
         className="rounded-md border border-border px-2 py-1 text-xs disabled:opacity-50"
       >
-        {busy ? "Checking…" : "Check now"}
+        {busy === "check" ? "Checking…" : "Check now"}
+      </button>
+      <button
+        type="button"
+        onClick={() => hit("/api/admin/report-now", "report")}
+        disabled={busy !== ""}
+        className="rounded-md border border-border px-2 py-1 text-xs disabled:opacity-50"
+      >
+        {busy === "report" ? "Sending…" : "Send report now"}
       </button>
     </div>
   );

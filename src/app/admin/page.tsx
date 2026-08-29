@@ -6,10 +6,10 @@ export default function AdminPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Monitor Setup</h1>
         <p className="max-w-2xl text-sm text-muted">
-          Add the Fair Price Shops you want to watch. Once all of them have
-          started giving ration for the day you get one &ldquo;shops opened&rdquo;
-          email, and one combined end-of-day report. A shop can be given its own
-          times instead.
+          Add the Fair Price Shops you want to watch and set your report times.
+          At each time you get one status email — which shops are open, since
+          when, and what they&apos;ve dispensed so far. A shop can be given its
+          own report times instead.
         </p>
       </div>
       <AdminPanel />

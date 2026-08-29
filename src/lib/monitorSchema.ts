@@ -2,11 +2,14 @@ import { z } from "zod";
 
 const hhmm = z
   .string()
+  .trim()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'time must be "HH:mm"');
 
-const hhmmOrNull = z
-  .union([hhmm, z.literal(""), z.null()])
-  .transform((v) => (v === "" || v == null ? null : v));
+/** A sorted, de-duplicated list of "HH:mm" times. */
+const timeList = z
+  .array(hhmm)
+  .max(12)
+  .transform((arr) => [...new Set(arr)].sort());
 
 /** Global monitor settings (admin "Settings" card). */
 export const settingsInput = z.object({
@@ -14,9 +17,7 @@ export const settingsInput = z.object({
     .array(z.string().trim().email("enter a valid email"))
     .max(5)
     .default([]),
-  pollFrom: hhmm.default("05:00"),
-  openedDigestTime: hhmm.default("13:00"),
-  eodDigestTime: hhmm.default("21:00"),
+  reportTimes: timeList.default([]),
 });
 export type SettingsInput = z.infer<typeof settingsInput>;
 
@@ -33,12 +34,12 @@ export const monitorConfigInput = z.object({
     .regex(/^\d{2,4}$/)
     .default("073"),
   pollEnabled: z.boolean().default(true),
-  openedOverride: hhmmOrNull.default(null),
-  eodOverride: hhmmOrNull.default(null),
+  /** Empty → this shop is in the global report. Non-empty → its own times. */
+  reportTimes: timeList.default([]),
 });
 export type MonitorConfigInput = z.infer<typeof monitorConfigInput>;
 
-/** Bulk add: many shops with shared settings. */
+/** Bulk add: many shops at once. */
 export const bulkAddInput = z.object({
   shops: z
     .array(

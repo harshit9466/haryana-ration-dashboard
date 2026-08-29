@@ -5,32 +5,31 @@ import { readJson } from "@/lib/params";
 import { monitorConfigInput, bulkAddInput } from "@/lib/monitorSchema";
 import { istDateKey } from "@/lib/normalize";
 
-/** GET /api/admin/config — all monitored shops + today's monitor state. */
+/** GET /api/admin/config — all monitored shops + today's monitor state + today's sent reports. */
 export async function GET() {
   try {
     const list = await prisma.monitorConfig.findMany({
       orderBy: { createdAt: "asc" },
     });
     const today = istDateKey();
-    const states = await prisma.dailyMonitorState.findMany({
-      where: { date: today, fpsId: { in: list.map((c) => c.fpsId) } },
-    });
-    const digest = await prisma.dailyDigestState.findUnique({
-      where: { date: today },
-    });
+    const [states, reportStates] = await Promise.all([
+      prisma.dailyMonitorState.findMany({
+        where: { date: today, fpsId: { in: list.map((c) => c.fpsId) } },
+      }),
+      prisma.dailyReportState.findMany({ where: { date: today } }),
+    ]);
     const byFps = new Map(states.map((s) => [s.fpsId, s]));
+    const sentByScope = new Map(
+      reportStates.map((r) => [r.scope, r.sentTimes]),
+    );
 
     return ok({
-      digest: digest
-        ? {
-            openedDigestSentAt: digest.openedDigestSentAt,
-            eodDigestSentAt: digest.eodDigestSentAt,
-          }
-        : null,
+      globalReportsSent: sentByScope.get("global") ?? [],
       shops: list.map((c) => {
         const s = byFps.get(c.fpsId);
         return {
           ...c,
+          reportsSent: sentByScope.get(c.fpsId) ?? [],
           today: s
             ? {
                 openedAt: s.openedAt,
@@ -49,8 +48,8 @@ export async function GET() {
 
 /**
  * POST /api/admin/config
- *  - { shops: [{fpsId, label}, ...], distCode? }  → bulk add
- *  - { fpsId, label, ..., openedOverride?, eodOverride? }  → single upsert (edit)
+ *  - { shops: [{fpsId, label}, ...], distCode? }        → bulk add
+ *  - { fpsId, label, pollEnabled?, reportTimes? }        → single upsert (edit)
  */
 export async function POST(req: Request) {
   const body = await readJson(req);
@@ -93,8 +92,7 @@ export async function POST(req: Request) {
         label: d.label,
         distCode: d.distCode,
         pollEnabled: d.pollEnabled,
-        openedOverride: d.openedOverride,
-        eodOverride: d.eodOverride,
+        reportTimes: d.reportTimes,
       },
     });
     return ok(saved);
@@ -112,6 +110,7 @@ export async function DELETE(req: NextRequest) {
   try {
     await prisma.monitorConfig.delete({ where: { fpsId } });
     await prisma.dailyMonitorState.deleteMany({ where: { fpsId } });
+    await prisma.dailyReportState.deleteMany({ where: { scope: fpsId } });
     return ok({ deleted: fpsId });
   } catch (err) {
     return failFromError(err, 500);

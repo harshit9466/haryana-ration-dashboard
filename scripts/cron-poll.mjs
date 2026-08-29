@@ -1,5 +1,6 @@
 // Entrypoint for the Railway "cron" service.
-// Schedule is set in Railway service settings (every 2 hours, UTC) — not here.
+// Schedule is set in Railway service settings (every 15 min) — not here. It's just
+// a heartbeat; which report times fire is entirely DB-driven (admin Settings).
 // Job: call the web service's /api/cron/poll, then exit.
 //
 // Env:

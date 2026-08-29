@@ -410,39 +410,37 @@ saaf karo, (4) return. Koi business logic route me nahi.
 
 ---
 
-## 7. Monitoring & email feature (v2 — combined digests)
+## 7. Monitoring & email feature (v3 — configurable report times)
 
-> v1 was per-shop start + per-shop EOD emails. **v2 (shipped `8a94850`)**: two combined
-> digests per day, with an optional per-shop override.
+> v1: per-shop start + EOD emails. v2: two fixed combined digests. **v3 (shipped `<pending>`)**:
+> a user-editable **list of report times** — a status snapshot email at each.
 
 ### What it does
 
-- **Settings (admin page):** notification emails, `pollFrom`, `openedDigestTime`, `eodDigestTime` — global.
-- **Add shops:** multi-select — add several FPS at once.
-- **Per shop:** ON/OFF, and Edit to set `openedOverride` / `eodOverride` times (blank = in the digest).
-- **"Shops opened" digest** — ONE email, sent when every non-override shop has opened for the day,
-  OR by `openedDigestTime` (whichever first). Lists each shop: opened-at time / not yet open.
-- **End-of-day digest** — ONE email at `eodDigestTime` with every non-override shop's full-day
-  totals (transactions, ₹, commodities, first/last sale).
-- **Override shops** get their own single opened / EOD email at their own time instead.
+- **Settings (admin page):** notification emails + `reportTimes` — a list of IST "HH:mm" times.
+- **At each report time:** ONE email — for every monitored shop: open? since when? cards + ₹ +
+  commodities dispensed so far today. The last time of the day = the end-of-day report.
+- **Add shops:** multi-select. **Per shop:** ON/OFF, and Edit to give it its OWN `reportTimes`
+  (then it's excluded from the global email and gets its own).
+- **Admin buttons:** "Check now" (process any due reports), "Send report now" (force a snapshot,
+  doesn't mark times sent).
 
 ### Logic (`/api/cron/poll` → `runPoll()` in `src/lib/monitor.ts`)
 
 ```
-if now_ist < settings.pollFrom: skip
-for each enabled shop without today's openedAt:
-    txns = API 4 (fps_id, month, year, today)         # date-filtered
-    if txns.count > 0: state.openedAt = now; state.firstTxnAt = earliest loginTime
-
-opened digest: if not sent and (all non-override shops opened OR now >= openedDigestTime)
-eod digest:    if not sent and now >= eodDigestTime
-per-shop override: own email at the shop's own time
+for scope "global" (shops with no own reportTimes) and each override shop:
+    due = scope.reportTimes where time <= now_ist AND not in daily_report_state.sentTimes
+    if due not empty:
+        poll each shop in scope (API 4, date-filtered) → snapshot
+        send ONE status email "as of <latest due time>"
+        daily_report_state.sentTimes += due
 ```
 
-- **Idempotent** — `daily_digest_state` (per day) + `daily_monitor_state` flags prevent repeats.
-- **New day** = new state rows, created lazily.
-- Cron schedule `0 */2 * * *` (every 2h, UTC). Off-hours → route returns early, cheap.
-- Tables: `settings` (singleton), `monitor_config`, `daily_monitor_state`, `daily_digest_state`, `email_log`.
+- **Cron is a pure heartbeat** — `*/15 * * * *` UTC. The govt API is called ONLY when a report is
+  due, so a quiet day = a handful of calls. All report timing lives in the DB, editable with no redeploy.
+- **Idempotent** — `daily_report_state (date, scope, sentTimes[])`.
+- `force` mode (Send report now) sends regardless and marks nothing.
+- Tables: `settings`, `monitor_config`, `daily_monitor_state` (admin display), `daily_report_state`, `email_log`.
 
 ### Email bhejnа (`lib/mailer.ts`)
 

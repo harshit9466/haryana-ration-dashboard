@@ -16,9 +16,7 @@ export async function GET() {
           : env().NOTIFY_EMAIL
             ? [env().NOTIFY_EMAIL]
             : [],
-      pollFrom: s.pollFrom,
-      openedDigestTime: s.openedDigestTime,
-      eodDigestTime: s.eodDigestTime,
+      reportTimes: s.reportTimes,
     });
   } catch (err) {
     return failFromError(err, 500);
@@ -32,7 +30,7 @@ export async function POST(req: Request) {
     return fail(parsed.error.issues[0]?.message ?? "Invalid input", 400);
   }
   try {
-    await getSettings(); // ensure row exists
+    await getSettings(); // ensure the row exists
     const saved = await prisma.settings.update({
       where: { id: 1 },
       data: parsed.data,
